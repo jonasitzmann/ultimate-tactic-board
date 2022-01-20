@@ -42,7 +42,7 @@ def main():
     for i in range(3):
         edges = cv2.erode(edges, kernel)
         edges = cv2.dilate(edges, kernel)
-    show(edges, scale=10)
+    # show(edges, scale=10)
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     hull = []
     max_area = 0
@@ -58,7 +58,7 @@ def main():
     annotated = img.copy()
     cv2.drawContours(annotated, [hull], -1, (255, 255, 0), 3)
     cv2.drawContours(annotated, hull, -1, (255, 255, 0), 10)
-    show(annotated, scale=5)
+    # show(annotated, scale=5)
     corners = hull[:, 0]
     center = np.mean(corners, dtype=np.int16, axis=0)
     angles = [np.arctan2(*(corner - center)) for corner in corners]
@@ -71,45 +71,20 @@ def main():
     img_transformed = cv2.warpPerspective(img, transform, (new_w, new_h))
     # show(img_transformed, wait=True)
     gray = cv2.cvtColor(img_transformed, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 100, 200)
     gray = (gray.astype(np.float32) * 255 / gray.max()).astype(np.uint8)
     thresholded = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 9, -15)
-    # kernel_size = 5
-    # saturation = cv2.cvtColor(img_transformed, cv2.COLOR_BGR2HSV)[:, :, 1]
-    # saturation_blurred = cv2.medianBlur(saturation, kernel_size)
-    # ksize_erode = int(resize_factor / 2 * 0.8) * 2 + 1  # should be odd
-    # eroded = cv2.erode(saturation_blurred, np.ones((ksize_erode, ksize_erode)))
-    # saturation_foreground = np.clip(saturation_blurred.astype(np.float32) - eroded.astype(np.float32), 0, 255).astype(np.uint8)
-    # saturation_foreground = (saturation_foreground.astype(np.float32) * 255 / saturation_foreground.max()).astype(np.uint8)
-    # # show(saturation_blurred, wait=False)
-    # # flooded = saturation_blurred.copy()
-    # # flood_thr_1, flood_thr_2 = 200, 4
-    # # margin = 1
-    # # flood_color = 0
-    # # for x in np.linspace(0, new_w, 3, endpoint=False):
-    # #     cv2.floodFill(flooded, None, (int(x), margin), flood_color, [flood_thr_1]*1, [flood_thr_2]*1)
-    # #     cv2.floodFill(flooded, None, (int(x), new_h - margin), flood_color, [flood_thr_1] * 1, [flood_thr_2] * 1)
-    # # for y in np.linspace(0, new_h, 3, endpoint=False):
-    # #     cv2.floodFill(flooded, None, (margin, int(y)), flood_color, [flood_thr_1]*1, [flood_thr_2]*1)
-    # #     cv2.floodFill(flooded, None, (new_w - margin, int(y)), flood_color, [flood_thr_1] * 1, [flood_thr_2] * 1)
-    # # flooded[flooded > 0] = 255
-    # ksize = int(resize_factor / 2 * 12) * 2 + 1
-    # c = - ksize // 8
-    # thresholded = cv2.adaptiveThreshold(saturation_foreground, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, ksize, c)
-    #
-    # # find circles
     radius_cm = 1  # cm
     radius_pixels = radius_cm * new_h // field_height
-    min_radius, max_radius = (np.array([0.7, 0.95]) * radius_pixels).astype(np.int32)
-    circles = cv2.HoughCircles(thresholded, cv2.HOUGH_GRADIENT, 1.6, new_h / 100, param1=200, param2=20, minRadius=min_radius, maxRadius=max_radius)
+    min_radius, max_radius = (np.array([0.65, 0.95]) * radius_pixels).astype(np.int32)
+    circles = cv2.HoughCircles(thresholded, cv2.HOUGH_GRADIENT, 1.5, new_h / 200, param1=200, param2=20, minRadius=min_radius, maxRadius=max_radius)
 
     circles = np.uint16(np.around(circles))
     mask = np.zeros_like(thresholded)
     for i in circles[0, :]:
-        cv2.circle(mask, (i[0], i[1]), int(radius_pixels), 255, -1)
+        cv2.circle(mask, (i[0], i[1]), int(radius_pixels*1.5), 255, -1)
 
-    show(thresholded, wait=False)
-    show(mask)
+    # show(thresholded, wait=False)
+    # show(mask)
     # img_hsv = cv2.cvtColor(flooded, cv2.COLOR_BGR2HSV)
     annotated = img_transformed.copy()
     contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -131,11 +106,9 @@ def main():
     # show_all = False
     show_all = True
     if show_all:
-        # show(img_transformed, wait=False)
-        # show(saturation, wait=False)
-        # show(saturation_foreground, wait=False)
-        # show(thresholded, wait=False)
-        # show(mask, wait=False)
+        show(img_transformed, wait=False)
+        show(thresholded, wait=False)
+        show(mask, wait=False)
         show(annotated)
 
 
@@ -173,31 +146,59 @@ def get_number(image, contour, scale):
     cv2.drawContours(mask, [contour], 0, 255, -1)
     # show(crop_to_content(mask, image), 100, 'crop_original', False, 0)
     median_color = np.median(image[mask == 255], axis=0).astype(np.uint8)
-    image[mask == 0] = median_color
-    img_blurred = image.copy()
-    n_blurrs = 5
-    for i in range(n_blurrs):
-        img_blurred = cv2.GaussianBlur(img_blurred, (3, 3), 5)
-        img_blurred[mask == 255] = image[mask == 255]
-    img_sharp = np.clip(img_blurred.astype(np.int32) - cv2.GaussianBlur(img_blurred, (7, 7), 3).astype(np.int32), 0, 255).astype(np.uint8)
-    max_color = img_sharp.reshape(-1, 3).max()
-    img_sharp = (img_sharp.astype(np.float32) * 255 / max_color).astype(np.uint8)
-    crop = crop_to_content(mask, img_sharp)
-    mask = crop_to_content(mask, mask)
-    crop[mask == 0] *= 0
-    show(crop, 100, 'digit_exposed', wait=False, pos=2)
-    h, w = crop.shape[:2]
-    crop_flat = crop.reshape(-1, 3)
-    mask_flat = mask.reshape(-1, 1)
-    kmeans = KMeans(2)
-    kmeans.fit(crop_flat[mask_flat.reshape(-1) == 255, :])
+    crop = crop_to_content(mask, image)
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    gray = (gray.astype(np.float32) * 255 / gray.max()).astype(np.uint8)
+    thresholded = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 15, 0)
+    contours, _ = cv2.findContours(thresholded, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    best_hull = None
+    min_area = None
+    center = (np.array(crop.shape[:2]) / 2).astype(np.int32)
+    center = tuple(int(x) for x in center)
+    # cv2.circle(crop, center, 4, (200, 50, 0), -1)
+    for c in contours:
+        hull = cv2.convexHull(c)
+        if cv2.pointPolygonTest(hull, center, False) > 0:
+            area = cv2.contourArea(hull)
+            if min_area is None or area < min_area:
+                min_area = area
+                best_hull = hull
+    cv2.drawContours(crop, [best_hull], 0, (0, 200, 150), 1)
+    # show(crop, 100)
+    mask = np.zeros_like(crop[:, :, 0])
+    cv2.drawContours(mask, [best_hull], 0, 255, -1)
+    cv2.drawContours(mask, [best_hull], 0, 0, 1)
+    thresholded = 255 - thresholded
+    thresholded[mask == 0] = 0
+    thresholded = crop_to_content(thresholded, thresholded)
+    # show(thresholded, 100)
+
+    # image[mask == 0] = median_color
+    # img_blurred = image.copy()
+    # n_blurrs = 5
+    # for i in range(n_blurrs):
+    #     img_blurred = cv2.GaussianBlur(img_blurred, (3, 3), 5)
+    #     img_blurred[mask == 255] = image[mask == 255]
+    # img_sharp = np.clip(img_blurred.astype(np.int32) - cv2.GaussianBlur(img_blurred, (7, 7), 3).astype(np.int32), 0, 255).astype(np.uint8)
+    # max_color = img_sharp.reshape(-1, 3).max()
+    # img_sharp = (img_sharp.astype(np.float32) * 255 / max_color).astype(np.uint8)
+    # crop = crop_to_content(mask, img_sharp)
+    # mask = crop_to_content(mask, mask)
+    # crop[mask == 0] *= 0
+    # show(crop, 100, 'digit_exposed', wait=True)
+    # h, w = crop.shape[:2]
+    # crop_flat = crop.reshape(-1, 3)
+    # mask_flat = mask.reshape(-1, 1)
+    # kmeans = KMeans(2)
+    # kmeans.fit(crop_flat[mask_flat.reshape(-1) == 255, :])
     # kmeans.fit(crop_flat)
-    kmeans.cluster_centers_ = np.array(sorted(kmeans.cluster_centers_, key=sum, reverse=False))
-    crop_flat_binary = np.array(kmeans.predict(crop_flat))
-    crop_binary = crop_flat_binary.reshape(h, w).astype(np.uint8) * 255
+    # kmeans.cluster_centers_ = np.array(sorted(kmeans.cluster_centers_, key=sum, reverse=False))
+    # crop_flat_binary = np.array(kmeans.predict(crop_flat))
+    # crop_binary = crop_flat_binary.reshape(h, w).astype(np.uint8) * 255
     # crop_binary = cv2.erode(crop_binary, np.ones((2, 2)))
-    crop_binary = cv2.bitwise_and(crop_binary, mask)
-    crop_binary = crop_to_content(crop_binary, crop_binary)
+    # crop_binary = cv2.bitwise_and(crop_binary, mask)
+    # crop_binary = crop_to_content(crop_binary, crop_binary)
+    crop_binary = thresholded
     longer_side = max(crop_binary.shape[:2])
     crop_padded = np.pad(crop_binary, longer_side)
     target_size = 28
