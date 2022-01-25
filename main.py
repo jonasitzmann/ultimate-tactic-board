@@ -4,14 +4,14 @@ imgs_dir = 'input_imgs/'
 
 
 def main():
-    for img_path in [imgs_dir + 'ho-stack-1.jpg', imgs_dir + 'ho-stack-2.jpg']:
-    # img_path = imgs_dir + 'disc.jpg'
-        show_digits = True
-        show_circles = True
-        record_examples = False
-        player_positions = scan.scan(img_path, show_digits, show_circles, record_examples)
-        surface = drawer.draw_scene(player_positions)
-        drawer.show(surface, wait=0)
+    # for img_path in [imgs_dir + 'ho-stack-1.jpg', imgs_dir + 'ho-stack-2.jpg']:
+    img_path = imgs_dir + 'disc.jpg'
+    show_digits = True
+    show_circles = True
+    record_examples = False
+    player_positions = scan.scan(img_path, show_digits, show_circles, record_examples)
+    surface = drawer.draw_scene(player_positions)
+    drawer.show(surface, wait=0)
 
 
 def animate():
@@ -24,5 +24,5 @@ def animate():
 
 
 if __name__ == '__main__':
-    main()
-    # animate()
+    # main()
+    animate()
