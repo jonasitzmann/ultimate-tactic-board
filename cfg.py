@@ -1,6 +1,6 @@
 # coding=utf-8
 # directories
-input_images_dir = 'input_images/'
+input_imgs_dir = 'input_imgs/'
 media_out_dir = 'media_out/'
 data_dir = 'data/'
 reference_digits_dir = data_dir + 'reference_digits/'

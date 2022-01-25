@@ -41,19 +41,19 @@ def get_reference_features():
     return global_features
 
 
-def get_batch(image):
-    batch = torch.tensor(image, dtype=torch.float32).view(1, 1, 28, 28)
+def get_batch(img):
+    batch = torch.tensor(img, dtype=torch.float32).view(1, 1, 28, 28)
     transform = transforms.Normalize((0.1307,), (0.3081,))
     batch = transform(batch)
     return batch
 
 
-def classify_image_by_examples(image, show=False):
-    features = get_features(image)
+def classify_img_by_examples(img, show=False):
+    features = get_features(img)
     reference_features = get_reference_features()
     min_mses = ((reference_features - features)**2).mean(axis=2).min(axis=1).values
     pred = min_mses.argmin().item() + 1
-    show_prediction(get_batch(image), pred, min_mses) if show else None
+    show_prediction(get_batch(img), pred, min_mses) if show else None
     return pred
 
 
@@ -65,9 +65,9 @@ def show_prediction(batch, prediction, mses):
     plt.show()
 
 
-def get_features(image):
+def get_features(img):
     model = get_model()
-    batch = get_batch(image)
+    batch = get_batch(img)
     pred, features = model(batch)
     return features[0]
 

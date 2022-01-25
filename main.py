@@ -1,21 +1,21 @@
 import scan
 import drawer
-images_dir = 'input_images/'
+imgs_dir = 'input_imgs/'
 
 
 def main():
-    for image_path in [images_dir + 'ho-stack-1.jpg', images_dir + 'ho-stack-2.jpg']:
-    # image_path = images_dir + 'disc.jpg'
-        show_digits = False
+    for img_path in [imgs_dir + 'ho-stack-1.jpg', imgs_dir + 'ho-stack-2.jpg']:
+    # img_path = imgs_dir + 'disc.jpg'
+        show_digits = True
         show_circles = True
         record_examples = False
-        player_positions = scan.scan(image_path, show_digits, show_circles, record_examples)
+        player_positions = scan.scan(img_path, show_digits, show_circles, record_examples)
         surface = drawer.draw_scene(player_positions)
         drawer.show(surface, wait=0)
 
 
 def animate():
-    img_1, img_2 = images_dir + 'ho-stack-1.jpg', images_dir + 'ho-stack-2.jpg'
+    img_1, img_2 = imgs_dir + 'ho-stack-1.jpg', imgs_dir + 'ho-stack-2.jpg'
     show_circles = False
     show_digits = False
     state_1 = scan.scan(img_1, show_digits, show_circles)
