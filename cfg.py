@@ -7,7 +7,7 @@ reference_digits_dir = data_dir + 'reference_digits/'
 
 # dimensions
 resize_factor = 20
-field_height_m, field_width_m = 100, 37  # dimensions of an actual field, not the tactics board
+field_height_m, field_width_m, endzone_height_m = 100, 37, 18  # dimensions of an actual field, not the tactics board
 resolution_x, resolution_y = 1920, 1080
 max_num_windows = 5
 digit_target_size = 28
@@ -32,3 +32,8 @@ player_radius_lb, player_radius_ub = 0.75, 0.9
 
 # digits
 font_size = 0.15 * resize_factor
+
+
+# drawing
+border_size_m = 3
+draw_scale = 8

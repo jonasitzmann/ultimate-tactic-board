@@ -37,47 +37,44 @@ def animate_scene(state_1, state_2, num_steps, name='animation'):
     shutil.rmtree(output_path)
 
 
-# globals
-width, height, endzone_height = 37, 100, 18
-border = 3
-scale = 8
-ctx: Optional[cairo.Context] = None
-surface: Optional[cairo.ImageSurface] = None
+ctx: Optional[cairo.Context] = None  # singleton
+surface: Optional[cairo.ImageSurface] = None  # singleton
 
 
 def draw_field():
     draw_background()
-    ctx.move_to(*m2p([border, border]))
+    ctx.move_to(*m2p([cfg.border_size_m, cfg.border_size_m]))
     select_line_brush()
-    path = [[width, 0], [0, height], [-width, 0], [0, -height]]
+    path = [[cfg.field_width_m, 0], [0, cfg.field_height_m], [-cfg.field_width_m, 0], [0, -cfg.field_height_m]]
     for line in path:
         rel_line(*line)
-    for y in [endzone_height, height - endzone_height]:
+    for y in [cfg.endzone_height_m, cfg.field_height_m - cfg.endzone_height_m]:
         move_to(0, y)
-        rel_line(width, 0)
+        rel_line(cfg.field_width_m, 0)
     ctx.stroke()
 
 
 def draw_background():
     ctx.set_source_rgb(0.3, 0.5, 0.3)
     ctx.move_to(*m2p([0, 0]))
-    w = width + 2 * border
-    h = height + 2 * border
+    w = cfg.field_width_m + 2 * cfg.border_size_m
+    h = cfg.field_height_m + 2 * cfg.border_size_m
     path = [[w, 0], [0, h], [-w, 0], [0, -h]]
     for line in path:
         rel_line(*line)
     ctx.fill()
 
+
 @np.vectorize
 def m2p(x, rounded=True):
-    x = scale * x
+    x = cfg.draw_scale * x
     if rounded:
         x = int(x)
     return x
 
 
 def move_to(x, y):
-    ctx.move_to(*m2p([border + x, border + y]))
+    ctx.move_to(*m2p([cfg.border_size_m + x, cfg.border_size_m + y]))
 
 
 def rel_line(x, y):
@@ -89,7 +86,7 @@ def show(surface, filename='temp', wait=10):
     path = f'{cfg.media_out_dir}/{filename}.png'
     surface.write_to_png(path)
     cv2.imshow(filename, cv2.imread(path))
-    window_x = cfg.resolution_x - 50 - m2p(width + 2*border)
+    window_x = cfg.resolution_x - 50 - m2p(cfg.field_width_m + 2 * cfg.border_size_m)
     cv2.moveWindow(filename, window_x, 0)
     cv2.waitKey(wait)
 
@@ -101,7 +98,7 @@ def select_line_brush():
 
 def init_context():
     global ctx, surface
-    size_meters = np.array([width + 2 * border, height + 2 * border])
+    size_meters = np.array([cfg.field_width_m + 2 * cfg.border_size_m, cfg.field_height_m + 2 * cfg.border_size_m])
     size_pixels = m2p(size_meters / 2, rounded=True) * 2
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, *size_pixels)
     ctx = cairo.Context(surface)
@@ -117,7 +114,7 @@ def draw_player(player: state.Player, color):
     ctx.set_source_rgb(0.8, 0.8, 0.8)
     ctx.select_font_face("Serif", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
     ctx.set_font_size(m2p(2))
-    pos = [m2p(player.pos[0] + border), m2p(player.pos[1] + border)]
+    pos = [m2p(player.pos[0] + cfg.border_size_m), m2p(player.pos[1] + cfg.border_size_m)]
     text(player.label, pos, player.orientation)
 
 
