@@ -5,33 +5,71 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torch.optim.lr_scheduler import StepLR
+from glob import glob
 import matplotlib.pyplot as plt
+import cv2
+import cfg
 
 
-model = None  # lazy initialization
-def classify_image(image):
-    global model
-    if model is None:
-        model = Net()
-        state_dict_path = "mnist_cnn.pt"
+global_model = None  # lazy initialization
+global_features = None
+
+
+def get_model():
+    global global_model
+    if global_model is None:
+        global_model = Net()
+        state_dict_path = cfg.data_dir + "mnist_cnn.pt"
         state_dict = torch.load(state_dict_path)
-        model.load_state_dict(state_dict)
+        global_model.load_state_dict(state_dict)
+    return global_model
+
+
+def get_reference_features():
+    global global_features
+    if global_features is None:
+        global_features = []
+        for label in range(1, 8):
+            file_paths = glob(f'{cfg.reference_digits_dir}/{label}/*.png')
+            features_i = []
+            for img_path in file_paths:
+                img = cv2.imread(img_path)[:, :, 0]
+                features_i.append(get_features(img).unsqueeze(0))
+            features_i = torch.cat(features_i, dim=0)
+            global_features.append(features_i)
+        global_features = torch.cat([f.unsqueeze(0) for f in global_features])
+    return global_features
+
+
+def get_batch(image):
     batch = torch.tensor(image, dtype=torch.float32).view(1, 1, 28, 28)
     transform = transforms.Normalize((0.1307,), (0.3081,))
     batch = transform(batch)
-    log_probs = model(batch)[0]
-    prediction = torch.argmax(log_probs[1:8]).item() + 1
-    entropy = -sum(torch.exp(log_probs) * log_probs)
+    return batch
+
+
+def classify_image_by_examples(image, show=False):
+    features = get_features(image)
+    reference_features = get_reference_features()
+    min_mses = ((reference_features - features)**2).mean(axis=2).min(axis=1).values
+    pred = min_mses.argmin().item() + 1
+    show_prediction(get_batch(image), pred, min_mses) if show else None
+    return pred
+
+
+def show_prediction(batch, prediction, mses):
     plt.gray()
     plt.imshow(batch.view(28, 28, 1))
-    plt.gcf().suptitle(str(prediction))
+    mses = [f'{mse:.2f}' for mse in mses]
+    plt.gcf().suptitle(f'{prediction}                    {mses}')
     plt.show()
-    return prediction, entropy
 
 
-
-
+def get_features(image):
+    model = get_model()
+    batch = get_batch(image)
+    pred, features = model(batch)
+    return features[0]
 
 
 class Net(nn.Module):
@@ -56,12 +94,12 @@ class Net(nn.Module):
         x = self.dropout1(x)
         x = self.bn2(x)
         x = torch.flatten(x, 1)
-        x = self.fc1(x)
-        x = F.relu(x)
+        features = self.fc1(x)
+        x = F.relu(features)
         x = self.dropout2(x)
         x = self.fc2(x)
         output = F.log_softmax(x, dim=1)
-        return output
+        return output, features
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
@@ -143,9 +181,9 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
         ])
-    dataset1 = datasets.MNIST('data', train=True, download=True,
+    dataset1 = datasets.MNIST('training_data', train=True, download=True,
                        transform=transform)
-    dataset2 = datasets.MNIST('data', train=False,
+    dataset2 = datasets.MNIST('training_data', train=False,
                        transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
@@ -160,7 +198,7 @@ def main():
         # scheduler.step()
 
     if args.save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+        torch.save(model.state_dict(), "data/mnist_cnn.pt")
 
 
 if __name__ == '__main__':
