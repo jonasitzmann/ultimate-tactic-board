@@ -5,7 +5,7 @@ imgs_dir = 'input_imgs/'
 
 def main():
     # for img_path in [imgs_dir + 'ho-stack-1.jpg', imgs_dir + 'ho-stack-2.jpg']:
-    img_path = imgs_dir + 'disc.jpg'
+    img_path = 'input_imgs/not_supported/arrows_and_areas.jpg'
     show_digits = True
     show_circles = True
     record_examples = False
@@ -24,5 +24,5 @@ def animate():
 
 
 if __name__ == '__main__':
-    # main()
-    animate()
+    main()
+    # animate()

@@ -7,6 +7,7 @@ import os
 import shutil
 import state
 import cfg
+import cv_utils
 
 
 def main():
@@ -81,13 +82,11 @@ def rel_line(x, y):
     ctx.rel_line_to(*m2p([x, y]))
 
 
-def show(surface, filename='temp', wait=10):
+def show(surface, filename='temp', wait=10, pos=4):
     os.makedirs(cfg.media_out_dir, exist_ok=True)
     path = f'{cfg.media_out_dir}/{filename}.png'
     surface.write_to_png(path)
-    cv2.imshow(filename, cv2.imread(path))
-    window_x = cfg.resolution_x - 50 - m2p(cfg.field_width_m + 2 * cfg.border_size_m)
-    cv2.moveWindow(filename, window_x, 0)
+    cv_utils.display_img(cv2.imread(path), filename, False, pos)
     cv2.waitKey(wait)
 
 

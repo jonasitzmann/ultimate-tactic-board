@@ -30,9 +30,12 @@ def rotate_img(img, angle):
     return cv2.warpAffine(img, rot_mat, img.shape[1::-1], flags=cv2.INTER_LINEAR)
 
 
-def display_img(img, scale=8, window_name=None, wait=True, pos=None):
+def display_img(img, window_name=None, wait=True, pos=None, scale=None):
     global show_count
-    scale /= cfg.resize_factor
+    if scale is None:
+        scale = cfg.resolution_x / cfg.max_num_windows / img.shape[1]
+    else:
+        scale /= cfg.resize_factor
     pos = show_count if pos is None else pos
     h, w = (np.array(img.shape[:2]) * scale).astype(np.int32)
     window_name = f'{show_count}' if window_name is None else window_name
@@ -43,9 +46,9 @@ def display_img(img, scale=8, window_name=None, wait=True, pos=None):
     cv2.waitKey(0) if wait else None
 
 
-def display_imgs(imgs, scale, start_pos=0):
+def display_imgs(imgs, start_pos=0, scale=None):
     for i, img in enumerate(imgs):
-        display_img(img, scale, wait=False, pos=i + start_pos)
+        display_img(img, str(i), False, i + start_pos, scale)
     cv2.waitKey(0)
 
 
