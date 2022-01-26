@@ -15,7 +15,7 @@ os.system('unset SESSION_MANAGER')
 # todo: move constants to cfg
 
 
-def scan(img_path: str, show_digits=False, show_circles=False, labeling_mode=False) -> state.State:
+def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circles, labeling_mode=cfg.labeling_mode):
     """
     Extracs the state (poses of players, disc position), from an input image
     :param img_path: path to the input image
@@ -151,7 +151,7 @@ def estimate_frame(crop, digit_hull, show_digits):
     gray_sharp = np.clip(gray - gray_blurred, cfg.min_intensity, cfg.max_intensity)
     cv2.drawContours(gray_sharp, [digit_hull], -1, cfg.min_intensity, -1)  # remove digit
     gray_sharp = cv_utils.min_max_normalize(gray_sharp)
-    frame = cv_utils.adaptive_threshold(gray_sharp, 45, -10)
+    frame = cv_utils.adaptive_threshold(gray_sharp, cfg.ksize_thresh_frame, cfg.offset_thresh_frame)
     contours = cv_utils.find_contours(frame)
     frame_contour = sorted(contours, key=cv2.contourArea, reverse=True)[0]
     frame_only = np.zeros_like(frame)

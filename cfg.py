@@ -32,6 +32,9 @@ offset_thresh_field = 1
 ksize_blur_crop = 11
 filled = -1
 
+# frame
+ksize_thresh_frame = 45
+offset_thresh_frame = -10
 
 radius_players_cm = 1
 player_radius_lb, player_radius_ub = 0.75, 0.9
@@ -41,6 +44,12 @@ h_circles_args = dict(method=cv2.HOUGH_GRADIENT, dp=1.8, param1=150, param2=30)
 font_size = 0.15 * resize_factor
 
 
+
 # drawing
 border_size_m = 3
 draw_scale = 8.7
+
+# options
+show_digits = False
+show_circles = False
+labeling_mode = False
