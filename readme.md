@@ -31,6 +31,11 @@ Usage
 
 Example Images
 ---
+### locate players
 ![](examples/intermediate_steps.png)
+
+### compensate for orientation and recognize digit
 ![](examples/intermediate_steps_digit_recognition.png)
-![](media_out/temp.png)
+
+### detect hand-drawn areas
+![](examples/intermediate_steps_areas.png)

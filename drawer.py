@@ -20,9 +20,21 @@ def main():
 def draw_scene(state: state.State):
     init_context()
     draw_field()
+    [draw_area(area, (0.3, 0.3, 0.3)) for area in state.areas]
     [draw_player(player, (0.6, 0, 0)) for player in state.players_team_1]
     [draw_player(player, (0, 0, 0.6)) for player in state.players_team_2]
     return surface
+
+
+def draw_area(pts, color):
+    pts = m2p(pts)
+    ctx.set_line_width(0)
+    ctx.set_source_rgb(*color)
+    ctx.move_to(*pts[0])
+    for x, y in pts:
+        ctx.line_to(x, y)
+    ctx.close_path()
+    ctx.fill()
 
 
 def animate_scene(state_1, state_2, num_steps, name='animation'):

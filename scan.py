@@ -48,7 +48,43 @@ def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circl
     for i, img_step in enumerate([gray_sharp, binary, players_mask, annotated] if show_circles else []):
         cv_utils.display_img(img_step, wait=False, window_name=str(i), pos=i)
     team_1, team_2 = cluster_players_by_color(players)
-    return state.State(players_team_1=team_1, players_team_2=team_2)
+    areas = np.array(detect_handdrawings(gray, circles)) / cfg.resize_factor
+    return state.State(players_team_1=team_1, players_team_2=team_2, areas=areas)
+
+
+def detect_handdrawings(gray_img, player_contours, show_intermediate_results=True):
+    cv_utils.display_img(gray_img, wait=False)
+    # todo: this is an experiment and has only been testen on a single image
+    gray_img[:, -5:] = gray_img[:, -6, None]  # todo: hack to remove artifact on right border
+    edges = cv2.Canny(gray_img, 100, 200)
+    [cv2.circle(edges, (c[0], c[1]), int(c[2]*2.2), cfg.min_intensity, -1) for c in player_contours.astype(np.uint16)]
+    # remove endzone lines
+    lw = int(1.5 * cfg.resize_factor)  # 1.5m in pixels
+    for height in [cfg.endzone_height_m, cfg.field_height_m - cfg.endzone_height_m]:
+        pts = np.array([[0, height], [cfg.field_width_m, height]])
+        pts = (pts * cfg.resize_factor).astype(np.int32)
+        cv2.line(edges, *pts, cfg.min_intensity, lw)  # use other method to remove the endzone line
+    cv_utils.display_img(edges, wait=False)
+    lw = cv_utils.round_to_odd(lw * 1.3)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (lw, lw))
+    iters = 3
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, None, None, iters, cv2.BORDER_CONSTANT, cfg.min_intensity)
+    cv_utils.display_img(edges, wait=False)
+    contours = cv_utils.find_contours(edges)
+    areas = []
+    for contour in contours:
+        hull = cv2.convexHull(contour)
+        poly = cv2.approxPolyDP(hull, 100, True)  # todo: how to configure the allowed error?
+        hull_area, c_area = [cv2.contourArea(c) for c in [hull, contour]]
+        if c_area > 100:
+            if hull_area / c_area < 1.2:
+                poly = [p[0] for p in poly]
+                areas.append(np.array(poly))
+
+    cv2.drawContours(gray_img, areas, -1, cfg.max_intensity, -1)
+    cv_utils.display_img(gray_img, wait=False)
+    areas = np.array(areas)
+    return areas
 
 
 def annotate_player(img, player, player_contour):
