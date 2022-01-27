@@ -1,4 +1,5 @@
 import cv2
+# todo: a hierarchical config file (e.g. yaml) would be better suited
 
 # coding=utf-8
 # directories
@@ -42,14 +43,18 @@ h_circles_args = dict(method=cv2.HOUGH_GRADIENT, dp=1.8, param1=150, param2=30)
 
 # digits
 font_size = 0.15 * resize_factor
+ksize_thresh_digits = 25
+offset_thresh_digits = -6
+min_contour_area_digit = 20
 
 
 
 # drawing
 border_size_m = 3
 draw_scale = 8.7
+disc_size_m = 0.6
 
 # options
 show_digits = False
-show_circles = False
+show_circles = True
 labeling_mode = False

@@ -32,12 +32,14 @@ class State:
     def __add__(self, other):
         red_players = [s + o for s, o in zip(self.players_team_1, other.players_team_1)]
         blue_players = [s + o for s, o in zip(self.players_team_2, other.players_team_2)]
+        disc = self.disc + other.disc
         # todo handle disc position
-        return State(players_team_1=red_players, players_team_2=blue_players, areas=self.areas)
+        return State(players_team_1=red_players, players_team_2=blue_players, areas=self.areas, disc=disc)
 
     def __mul__(self, x):
         red_players = [s * x for s in self.players_team_1]
         blue_players = [s * x for s in self.players_team_2]
+        disc = self.disc * x
         # todo handle disc position
-        return State(players_team_1=red_players, players_team_2=blue_players, areas=self.areas)
+        return State(players_team_1=red_players, players_team_2=blue_players, areas=self.areas, disc=disc)
 

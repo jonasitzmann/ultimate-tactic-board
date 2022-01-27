@@ -12,7 +12,6 @@ import cfg
 import cv2
 
 os.system('unset SESSION_MANAGER')
-# todo: move constants to cfg
 
 
 def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circles, labeling_mode=cfg.labeling_mode):
@@ -34,6 +33,9 @@ def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circl
     ksize = cv_utils.round_to_odd(cfg.resize_factor * cfg.ksize_sharpening)
     gray_blurred = cv2.medianBlur(gray, ksize).astype(np.int32)
     gray_sharp = cv_utils.min_max_normalize(np.clip(gray - gray_blurred, cfg.min_intensity, cfg.max_intensity))
+    ksize_2 = cv_utils.round_to_odd(cfg.resize_factor * cfg.ksize_sharpening * 2)
+    gray_blurred_2 = cv2.medianBlur(gray, ksize_2).astype(np.int32)
+    gray_sharp_2 = cv_utils.min_max_normalize(np.clip(gray_blurred_2 - gray, cfg.min_intensity, cfg.max_intensity))
     binary = cv_utils.adaptive_threshold(gray_sharp, ksize, cfg.offset_binarize_global)
     binary = cv2.medianBlur(binary, cfg.ksize_blur_thresholded)
     radius_pixels = cfg.radius_players_cm * new_h // cfg.tactic_board_height_cm
@@ -48,8 +50,19 @@ def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circl
     for i, img_step in enumerate([gray_sharp, binary, players_mask, annotated] if show_circles else []):
         cv_utils.display_img(img_step, wait=False, window_name=str(i), pos=i)
     team_1, team_2 = cluster_players_by_color(players)
-    areas = np.array(detect_handdrawings(gray, circles)) / cfg.resize_factor
-    return state.State(players_team_1=team_1, players_team_2=team_2, areas=areas)
+    areas = np.array(detect_handdrawings(gray_sharp_2, circles)) / cfg.resize_factor
+    disc_pos = np.array(locate_disc(img, gray_sharp_2)) / cfg.resize_factor
+    return state.State(players_team_1=team_1, players_team_2=team_2, areas=areas, disc=disc_pos)
+
+
+def locate_disc(img: np.array, gray_sharp) -> np.array:
+    """
+    :param img: an image containing the (transformed) tactics board
+    :return: disc coordinates in the image img
+    """
+    # cv_utils.display_img(gray_sharp, wait=True)
+    disc_pos = np.array([190, 1570])
+    return disc_pos
 
 
 def detect_handdrawings(gray_img, player_contours, show_intermediate_results=True):
@@ -64,12 +77,12 @@ def detect_handdrawings(gray_img, player_contours, show_intermediate_results=Tru
         pts = np.array([[0, height], [cfg.field_width_m, height]])
         pts = (pts * cfg.resize_factor).astype(np.int32)
         cv2.line(edges, *pts, cfg.min_intensity, lw)  # use other method to remove the endzone line
-    cv_utils.display_img(edges, wait=False)
+    cv_utils.display_img(edges, wait=False) if show_intermediate_results else None
     lw = cv_utils.round_to_odd(lw * 1.3)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (lw, lw))
     iters = 3
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, None, None, iters, cv2.BORDER_CONSTANT, cfg.min_intensity)
-    cv_utils.display_img(edges, wait=False)
+    cv_utils.display_img(edges, wait=False) if show_intermediate_results else None
     contours = cv_utils.find_contours(edges)
     areas = []
     for contour in contours:
@@ -78,11 +91,11 @@ def detect_handdrawings(gray_img, player_contours, show_intermediate_results=Tru
         hull_area, c_area = [cv2.contourArea(c) for c in [hull, contour]]
         if c_area > 100:
             if hull_area / c_area < 1.2:
-                poly = [p[0] for p in poly]
+                poly = [np.array(p[0]) for p in poly]
                 areas.append(np.array(poly))
 
     cv2.drawContours(gray_img, areas, -1, cfg.max_intensity, -1)
-    cv_utils.display_img(gray_img, wait=False)
+    cv_utils.display_img(gray_img, wait=False) if show_intermediate_results else None
     areas = np.array(areas)
     return areas
 
@@ -235,14 +248,14 @@ def extract_digit(img):
     :return: a binary crop of the digit and the convex hull of the digit in img
     """
     gray = cv_utils.min_max_normalize(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
-    crop_binary = cv_utils.adaptive_threshold(gray, 25, -6)
+    crop_binary = cv_utils.adaptive_threshold(gray, cfg.ksize_thresh_digits, cfg.offset_thresh_digits)
     contours = cv_utils.find_contours(crop_binary)
     best_hull = min_area = None
     center = tuple(int(x) for x in (np.array(img.shape[:2]) / 2))
     for c in contours:
         single_contour_mask, hull = np.zeros_like(crop_binary), cv2.convexHull(c)
         if cv2.pointPolygonTest(hull, center, True) > -5:
-            if cv2.contourArea(hull) > 20:
+            if cv2.contourArea(hull) > cfg.min_contour_area_digit:
                 cv2.drawContours(single_contour_mask, [hull], -1, cfg.max_intensity, -1)
                 is_white = np.median(crop_binary[single_contour_mask == cfg.max_intensity]) == cfg.max_intensity
                 if is_white:
@@ -250,11 +263,11 @@ def extract_digit(img):
                     if min_area is None or area < min_area:
                         min_area, best_hull = area, hull
     if best_hull is None:
-        cv2.drawContours(img, contours, -1, (cfg.max_intensity, 100, 0), 1)
+        cv2.drawContours(img, contours, -1, (cfg.max_intensity, cfg.medium_intensity, cfg.min_intensity), 1)
         cv_utils.display_imgs([img, crop_binary])
     digit_hull_mask = np.zeros_like(img[:, :, 0])
     cv2.drawContours(digit_hull_mask, [best_hull], 0, cfg.max_intensity, -1)
-    crop_binary[digit_hull_mask == 0] = 0
+    crop_binary[digit_hull_mask == cfg.min_intensity] = cfg.min_intensity
     crop_binary = cv_utils.crop_to_content(crop_binary, crop_binary)
     return crop_binary, best_hull
 

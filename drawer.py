@@ -19,21 +19,35 @@ def main():
 
 def draw_scene(state: state.State):
     init_context()
+    draw_background()
+    if state.areas is not None:
+        [draw_area(area, (0.7, 0.2, 0.2, 0.3)) for area in state.areas]
     draw_field()
-    [draw_area(area, (0.3, 0.3, 0.3)) for area in state.areas]
     [draw_player(player, (0.6, 0, 0)) for player in state.players_team_1]
     [draw_player(player, (0, 0, 0.6)) for player in state.players_team_2]
+    if state.disc is not None:
+        draw_disc(state.disc)
     return surface
 
 
 def draw_area(pts, color):
     pts = m2p(pts)
     ctx.set_line_width(0)
-    ctx.set_source_rgb(*color)
+    ctx.set_source_rgba(*color)
     ctx.move_to(*pts[0])
     for x, y in pts:
         ctx.line_to(x, y)
     ctx.close_path()
+    ctx.fill()
+
+
+def draw_disc(disc_pos):
+    ctx.set_line_width(0)
+    ctx.set_source_rgb(1, 1, 1)
+    radius = m2p(cfg.disc_size_m, rounded=False)
+    move_to(*disc_pos)
+    pos = ctx.get_current_point()
+    ctx.arc(*pos, radius, 0, 2 * np.pi)
     ctx.fill()
 
 
@@ -55,7 +69,6 @@ surface: Optional[cairo.ImageSurface] = None  # singleton
 
 
 def draw_field():
-    draw_background()
     ctx.move_to(*m2p([cfg.border_size_m, cfg.border_size_m]))
     select_line_brush()
     path = [[cfg.field_width_m, 0], [0, cfg.field_height_m], [-cfg.field_width_m, 0], [0, -cfg.field_height_m]]
