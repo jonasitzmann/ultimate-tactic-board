@@ -4,7 +4,7 @@ Python project for generating ultimate frisbee tactic animation from photos of t
 
 About
 ---
-This project aims to facilitate the creation of ultimate frisbee playbooks.
+This project aims to facilitate creating ultimate frisbee playbooks.
 It employs traditional and ml-based computer vision techiques to recognize e.g. player poses and disc position.
 The below examples also hint future features like recognizing marked areas and arrows.
 Currently, the program converts a single photo to a still tactical drawing or a series of photos to a mp4 animation.
