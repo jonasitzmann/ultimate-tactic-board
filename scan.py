@@ -26,15 +26,19 @@ def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circl
     img = cv2.imread(img_path)
     corners = detect_field(img)
     img = transform_to_birdseye(img, corners)
-    ez1, ez2 = find_enzone_lines(img)
     gray = cv_utils.min_max_normalize(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
     ksize = cv_utils.round_to_odd(cfg.resize_factor * cfg.ksize_sharpening)
     gray_blurred = cv2.medianBlur(gray, ksize).astype(np.int32)
     white_emphasized = cv_utils.min_max_normalize(np.clip(gray - gray_blurred, cfg.min_intensity, cfg.max_intensity))
     black_emphasized = cv_utils.min_max_normalize(np.clip(gray_blurred - gray, cfg.min_intensity, cfg.max_intensity))
+    binary = cv_utils.adaptive_threshold(white_emphasized, ksize, cfg.offset_binarize_global)
+    binary = cv2.medianBlur(binary, cfg.ksize_blur_thresholded)
+    binary_black = cv_utils.adaptive_threshold(black_emphasized, ksize, cfg.offset_binarize_global)
+    binary_black = cv2.medianBlur(binary_black, cfg.ksize_blur_thresholded)
+    ez1, ez2 = find_enzone_lines(img, binary_black)
 
     annotated, players = img.copy(), []
-    for c in find_player_contours(gray):
+    for c in find_player_contours(binary):
         players.append(identify_player(img.copy(), c, cfg.radius_pixels, show_digits, labeling_mode))
         annotate_player(annotated, players[-1], c)
     for i, img_step in enumerate([gray, annotated] if show_circles else []):
@@ -46,15 +50,9 @@ def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circl
     return state.State(players_team_1=team_1, players_team_2=team_2, areas=areas, disc=disc_pos)
 
 
-def find_player_contours(gray, show_circles=False):
-    ksize = cv_utils.round_to_odd(cfg.resize_factor * cfg.ksize_sharpening)
-    gray_blurred = cv2.medianBlur(gray, ksize).astype(np.int32)
-    white_emphasized = cv_utils.min_max_normalize(np.clip(gray - gray_blurred, cfg.min_intensity, cfg.max_intensity))
-
-    binary = cv_utils.adaptive_threshold(white_emphasized, ksize, cfg.offset_binarize_global)
-    binary = cv2.medianBlur(binary, cfg.ksize_blur_thresholded)
+def find_player_contours(binary, show_circles=False):
     lb, ub = [int(cfg.radius_pixels * factor) for factor in [cfg.player_radius_lb, cfg.player_radius_ub]]
-    circles = cv2.HoughCircles(binary, minDist=gray.shape[0]/100, minRadius=lb, maxRadius=ub, **cfg.h_circles_args)[0]
+    circles = cv2.HoughCircles(binary, minDist=binary.shape[0]/100, minRadius=lb, maxRadius=ub, **cfg.h_circles_args)[0]
     players_mask = np.zeros_like(binary)
     [cv2.circle(players_mask, (c[0], c[1]), cfg.radius_pixels, cfg.max_intensity, -1) for c in circles.astype(np.uint16)]
     player_contours = cv_utils.find_contours(players_mask)
@@ -63,7 +61,25 @@ def find_player_contours(gray, show_circles=False):
     return player_contours
 
 
-def find_enzone_lines(img):
+def find_enzone_lines(img, binary_img):
+    cv_utils.display_img(binary_img)
+    distance_res = 1
+    angle_res = np.pi / 180
+    threshold = int(img.shape[1] * 0.5)
+    endzone_height_px = cfg.endzone_height_m * cfg.resize_factor
+    epsilon = int(0.05 * endzone_height_px)
+    lines = cv2.HoughLinesP(binary_img, distance_res, angle_res, threshold, minLineLength=threshold, maxLineGap=int(0.2*threshold))
+    lines = lines[:, 0]
+    for l in lines if lines is not None else []:
+        cv2.line(img, (l[0], l[1]), (l[2], l[3]), (0,0,255), 3, cv2.LINE_AA)
+    lines = lines[np.abs(lines[:, 1] - lines[:, 3]) < epsilon]
+    upper_lines = lines[np.abs(lines[:, 1] - endzone_height_px) < epsilon]
+    ul = upper_lines[np.argmax(upper_lines[:, 3] - upper_lines[:, -1])]
+    cv2.line(img, (ul[0], ul[1]), (ul[2], ul[3]), (0, 255, 0), 3, cv2.LINE_AA)
+    lower_lines = lines[np.abs(lines[:, 1] - img.shape[0] + endzone_height_px) < epsilon]
+    ll = lower_lines[np.argmax(lower_lines[:, 3] - lower_lines[:, -1])]
+    cv2.line(img, (ll[0], ll[1]), (ll[2], ll[3]), (255, 0, 0), 3, cv2.LINE_AA)
+    cv_utils.display_img(img)
     # needed for two reasons:
     # - orientation of playing field (is the red endzone at top or bottom?)
     # - removal of endzone lines for detecting arrows and areas

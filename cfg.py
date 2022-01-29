@@ -61,9 +61,9 @@ disc_size_m = 0.6
 
 # options
 show_digits = False
-show_circles = False
+show_circles = True
 labeling_mode = False
 show_edges = False
 # demo_img = input_imgs_dir + '/not_supported/' + 'bad_perspective.jpg'
 demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective.jpg'
-demo_img = input_imgs_dir + '/not_supported/' + 'all_together.jpg'
+# demo_img = input_imgs_dir + '/not_supported/' + 'all_together.jpg'
