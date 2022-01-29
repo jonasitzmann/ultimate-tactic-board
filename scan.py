@@ -24,35 +24,67 @@ def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circl
     :return: the extracted state
     """
     img = cv2.imread(img_path)
-    new_h, new_w = cfg.field_height_m * cfg.resize_factor, cfg.field_width_m * cfg.resize_factor
-    corners_in = detect_field(img)
-    corners_out = np.array([(new_w, new_h), (new_w, 0), (0, 0), (0, new_h)], dtype=np.float32)
-    transform = cv2.getPerspectiveTransform(corners_in, corners_out[[1, 2, 3, 0]])  # todo: identify corners
-    img = cv2.warpPerspective(img, transform, (new_w, new_h))
+    corners = detect_field(img)
+    img = transform_to_birdseye(img, corners)
+    ez1, ez2 = find_enzone_lines(img)
     gray = cv_utils.min_max_normalize(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
     ksize = cv_utils.round_to_odd(cfg.resize_factor * cfg.ksize_sharpening)
     gray_blurred = cv2.medianBlur(gray, ksize).astype(np.int32)
-    gray_sharp = cv_utils.min_max_normalize(np.clip(gray - gray_blurred, cfg.min_intensity, cfg.max_intensity))
-    ksize_2 = cv_utils.round_to_odd(cfg.resize_factor * cfg.ksize_sharpening * 2)
-    gray_blurred_2 = cv2.medianBlur(gray, ksize_2).astype(np.int32)
-    gray_sharp_2 = cv_utils.min_max_normalize(np.clip(gray_blurred_2 - gray, cfg.min_intensity, cfg.max_intensity))
-    binary = cv_utils.adaptive_threshold(gray_sharp, ksize, cfg.offset_binarize_global)
-    binary = cv2.medianBlur(binary, cfg.ksize_blur_thresholded)
-    radius_pixels = cfg.radius_players_cm * new_h // cfg.tactic_board_height_cm
-    lb, ub = [int(radius_pixels * factor) for factor in [cfg.player_radius_lb, cfg.player_radius_ub]]
-    circles = cv2.HoughCircles(binary, minDist=new_h/100, minRadius=lb, maxRadius=ub, **cfg.h_circles_args)[0]
-    players_mask = np.zeros_like(binary)
-    [cv2.circle(players_mask, (c[0], c[1]), radius_pixels, cfg.max_intensity, -1) for c in circles.astype(np.uint16)]
+    white_emphasized = cv_utils.min_max_normalize(np.clip(gray - gray_blurred, cfg.min_intensity, cfg.max_intensity))
+    black_emphasized = cv_utils.min_max_normalize(np.clip(gray_blurred - gray, cfg.min_intensity, cfg.max_intensity))
+
     annotated, players = img.copy(), []
-    for c in cv_utils.find_contours(players_mask):
-        players.append(identify_player(img.copy(), c, radius_pixels, show_digits, labeling_mode))
+    for c in find_player_contours(gray):
+        players.append(identify_player(img.copy(), c, cfg.radius_pixels, show_digits, labeling_mode))
         annotate_player(annotated, players[-1], c)
-    for i, img_step in enumerate([gray_sharp, binary, players_mask, annotated] if show_circles else []):
+    for i, img_step in enumerate([gray, annotated] if show_circles else []):
         cv_utils.display_img(img_step, wait=False, window_name=str(i), pos=i)
     team_1, team_2 = cluster_players_by_color(players)
-    areas = np.array(detect_handdrawings(gray_sharp_2, circles)) / cfg.resize_factor
-    disc_pos = np.array(locate_disc(img, gray_sharp_2)) / cfg.resize_factor
+    # areas = np.array(detect_handdrawings(black_emphasized, circles)) / cfg.resize_factor
+    disc_pos = np.array(locate_disc(img, black_emphasized)) / cfg.resize_factor
+    areas = None
     return state.State(players_team_1=team_1, players_team_2=team_2, areas=areas, disc=disc_pos)
+
+
+def find_player_contours(gray, show_circles=False):
+    ksize = cv_utils.round_to_odd(cfg.resize_factor * cfg.ksize_sharpening)
+    gray_blurred = cv2.medianBlur(gray, ksize).astype(np.int32)
+    white_emphasized = cv_utils.min_max_normalize(np.clip(gray - gray_blurred, cfg.min_intensity, cfg.max_intensity))
+
+    binary = cv_utils.adaptive_threshold(white_emphasized, ksize, cfg.offset_binarize_global)
+    binary = cv2.medianBlur(binary, cfg.ksize_blur_thresholded)
+    lb, ub = [int(cfg.radius_pixels * factor) for factor in [cfg.player_radius_lb, cfg.player_radius_ub]]
+    circles = cv2.HoughCircles(binary, minDist=gray.shape[0]/100, minRadius=lb, maxRadius=ub, **cfg.h_circles_args)[0]
+    players_mask = np.zeros_like(binary)
+    [cv2.circle(players_mask, (c[0], c[1]), cfg.radius_pixels, cfg.max_intensity, -1) for c in circles.astype(np.uint16)]
+    player_contours = cv_utils.find_contours(players_mask)
+    for i, img_step in enumerate([binary, players_mask] if show_circles else []):
+        cv_utils.display_img(img_step, wait=False, window_name=str(i), pos=i)
+    return player_contours
+
+
+def find_enzone_lines(img):
+    # needed for two reasons:
+    # - orientation of playing field (is the red endzone at top or bottom?)
+    # - removal of endzone lines for detecting arrows and areas
+    return None, None
+
+
+def transform_to_birdseye(img, corners):
+    corners = sort_vertices_clockwise(corners)
+    l1, l2 = np.linalg.norm(corners[:2] - corners[1:3], 2, axis=1)
+    if l2 > l1:
+        corners = corners[[1, 2, 3, 0]]  # rotate 90°
+    new_h, new_w = cfg.field_height_m * cfg.resize_factor, cfg.field_width_m * cfg.resize_factor
+    corners_out = np.array([(0, 0), (0, new_h), (new_w, new_h), (new_w, 0)], dtype=np.float32)
+    transform = cv2.getPerspectiveTransform(corners, corners_out)
+    return cv2.warpPerspective(img, transform, (new_w, new_h))
+
+
+def sort_vertices_clockwise(vertices):
+    center = np.mean(vertices, dtype=np.int16, axis=0)
+    angles = [np.arctan2(*(corner - center)) for corner in vertices]
+    return np.array([corner for angle, corner in sorted(zip(angles, vertices))], np.float32)
 
 
 def locate_disc(img: np.array, gray_sharp) -> np.array:
@@ -60,25 +92,36 @@ def locate_disc(img: np.array, gray_sharp) -> np.array:
     :param img: an image containing the (transformed) tactics board
     :return: disc coordinates in the image img
     """
-    # cv_utils.display_img(gray_sharp, wait=True)
-    disc_pos = np.array([190, 1570])
+    saturation = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[:, :, 1]
+    binary = cv_utils.adaptive_threshold(gray_sharp, cv_utils.round_to_odd(cfg.ksize_sharpening + cfg.resize_factor), cfg.offset_binarize_global)
+    binary = cv2.medianBlur(binary, cfg.ksize_blur_thresholded)
+    lb, ub = [int(cfg.radius_pixels_disc * factor) for factor in [cfg.player_radius_lb, cfg.player_radius_ub]]
+    circles = cv2.HoughCircles(binary, minDist=img.shape[0]/100, minRadius=lb, maxRadius=ub, **cfg.h_circles_args_disc)[0]
+    disc_mask = np.zeros_like(binary)
+    best_saturation, best_position = cfg.min_intensity, None
+    for x, y, radius in circles.astype(np.uint16):
+        cv2.circle(disc_mask, (x, y), cfg.radius_pixels_disc, cfg.max_intensity, -1)
+        current_saturation = saturation[y, x]
+        if current_saturation > best_saturation:
+            best_saturation, best_position = current_saturation, [x, y]
+    disc_pos = np.array(best_position)
     return disc_pos
 
 
 def detect_handdrawings(gray_img, player_contours, show_intermediate_results=True):
-    cv_utils.display_img(gray_img, wait=False)
+    cv_utils.display_img(gray_img, wait=False) if show_intermediate_results else None
     # todo: this is an experiment and has only been testen on a single image
     gray_img[:, -5:] = gray_img[:, -6, None]  # todo: hack to remove artifact on right border
     edges = cv2.Canny(gray_img, 100, 200)
     [cv2.circle(edges, (c[0], c[1]), int(c[2]*2.2), cfg.min_intensity, -1) for c in player_contours.astype(np.uint16)]
     # remove endzone lines
-    lw = int(1.5 * cfg.resize_factor)  # 1.5m in pixels
+    lw = int(0.5 * cfg.resize_factor)  # 1.5m in pixels
     for height in [cfg.endzone_height_m, cfg.field_height_m - cfg.endzone_height_m]:
         pts = np.array([[0, height], [cfg.field_width_m, height]])
         pts = (pts * cfg.resize_factor).astype(np.int32)
         cv2.line(edges, *pts, cfg.min_intensity, lw)  # use other method to remove the endzone line
     cv_utils.display_img(edges, wait=False) if show_intermediate_results else None
-    lw = cv_utils.round_to_odd(lw * 1.3)
+    lw = cv_utils.round_to_odd(lw)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (lw, lw))
     iters = 3
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, None, None, iters, cv2.BORDER_CONSTANT, cfg.min_intensity)
@@ -130,7 +173,7 @@ def cluster_players_by_color(players: List[state.Player]):
     return team_1, team_2
 
 
-def detect_field(img: np.ndarray, show_edges=False) -> np.ndarray:
+def detect_field(img: np.ndarray, show_edges=cfg.show_edges) -> np.ndarray:
     """
     detects an ultimate field on a given input image
     :param img: numpy array representing the input image
@@ -140,7 +183,6 @@ def detect_field(img: np.ndarray, show_edges=False) -> np.ndarray:
     img_gray = cv_utils.min_max_normalize(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
     img_gray = cv2.medianBlur(img_gray, cfg.ksize_initial_blur)
     edges = cv_utils.adaptive_threshold(img_gray, cfg.ksize_thresh_field, cfg.offset_thresh_field)
-    cv_utils.display_img(edges, window_name='edges') if show_edges else None
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     corners = max_area = None
     for c in contours:
@@ -149,9 +191,11 @@ def detect_field(img: np.ndarray, show_edges=False) -> np.ndarray:
             hull_candidate = cv2.approxPolyDP(cv2.convexHull(c), cfg.field_detection_poly_epsilon, True)
             if len(hull_candidate) == 4:
                 corners, max_area = hull_candidate[:, 0], area
-    center = np.mean(corners, dtype=np.int16, axis=0)
-    angles = [np.arctan2(*(corner - center)) for corner in corners]  # todo use fiducials to identify corners
-    return np.array([corner for angle, corner in sorted(zip(angles, corners))], np.float32)
+    if show_edges:
+        cv_utils.display_img(edges, wait=False)
+        cv2.drawContours(edges, [corners], -1, cfg.medium_intensity, cfg.resize_factor // 2)
+        cv_utils.display_img(edges, window_name='edges', wait=True)
+    return corners
 
 
 def identify_player(img, contour, radius_pixels, show_digits, labeling_mode=False) -> state.Player:
@@ -288,6 +332,6 @@ def label_refenrence_player(img):
 
 
 if __name__ == '__main__':
-    state = scan(cfg.input_imgs_dir + 'ho-stack-1.jpg', show_digits=False, show_circles=True)
+    state = scan(cfg.input_imgs_dir + 'ho-stack-1.jpg')
     surface = drawer.draw_scene(state)
     drawer.show(surface, wait=0)
