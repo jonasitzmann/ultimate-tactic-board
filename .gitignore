@@ -1,4 +1,4 @@
 .idea/
 data/MNIST/
 input_imgs/
-media_out/
+media_out/*
