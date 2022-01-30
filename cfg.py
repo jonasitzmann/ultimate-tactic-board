@@ -65,15 +65,15 @@ disc_size_m = 0.6
 
 # options
 show_digits = False
-show_circles = True
+show_circles = False
 labeling_mode = False
 show_edges = False
 show_endzone_lines = False
 show_median_color = False
 show_field = False
-show_areas = False
+show_areas = True
 # demo_img = input_imgs_dir + '/not_supported/' + 'bad_perspective.jpg'
 demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective.jpg'
 demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective_rotated.jpg'
-demo_img = input_imgs_dir + '/not_supported/' + 'all_together.jpg'
-demo_img = input_imgs_dir + '/not_supported/' + 'arrows_and_areas.jpg'
+# demo_img = input_imgs_dir + '/not_supported/' + 'all_together.jpg'
+# demo_img = input_imgs_dir + '/not_supported/' + 'arrows_and_areas.jpg'

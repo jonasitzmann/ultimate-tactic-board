@@ -106,7 +106,7 @@ def find_enzone_lines(img, binary_img, show_endzone_lines=cfg.show_endzone_lines
     expected_len = int(img.shape[1] * 0.5)  # false positives are ok because of further filtering
     max_gap = int(0.2 * expected_len)
     endzone_height_px = cfg.endzone_height_m * cfg.resize_factor
-    epsilon_px = int(0.05 * endzone_height_px)
+    epsilon_px = int(0.1 * endzone_height_px)
 
     # algorithm
     lines = cv2.HoughLinesP(binary_img, distance_res, angle_res, expected_len, None, expected_len, max_gap)[:, 0]
@@ -171,24 +171,30 @@ def get_morph_circle(size):
 
 def is_hatched(contour, binary, show=False):
     contour, binary = contour.copy(), binary.copy()
-    lw = int(round(1.5 * cfg.resize_factor))
+    lw = int(round(2 * cfg.resize_factor))
     mask = np.zeros_like(binary)
     cv2.drawContours(binary, [contour], -1, cfg.medium_intensity, lw)
     cv2.drawContours(mask, [contour], -1, cfg.max_intensity, cfg.filled)
     binary = cv_utils.crop_to_content(np.bitwise_and(binary, mask))
+    if binary is None:
+        return False
     binary = cv2.ximgproc.thinning(binary)
     thr = 10
     max_gap = int(round(1 * cfg.resize_factor))
-    lines = cv2.HoughLinesP(binary, 1, np.pi / 180 / 3, thr, None, None, max_gap)[:, 0]
+    lines = cv2.HoughLinesP(binary, 1, np.pi / 180 / 3, thr, None, None, max_gap)
+    min_lines_hatched = 3
+    if lines is None or len(lines) < min_lines_hatched:
+        return False
+    else:
+        lines = lines[:, 0]
     if show:
         for l in lines:
             cv2.line(binary, (l[0], l[1]), (l[2], l[3]), cfg.medium_intensity, 3)
         cv_utils.display_img(binary)
-    angles = [np.arctan2([x0, x1], [y0, y1]) / np.pi * 180 for x0, y0, x1, y1 in lines]
-    min_lines_hatched = 3
+    angles = [np.arctan2(x1 - x0, y1 - y0) / np.pi * 180 for x0, y0, x1, y1 in lines]
     std_angles = np.std(angles)
-    max_std_angels = 30
-    hatched = (len(angles) >= min_lines_hatched) and (std_angles <= max_std_angels)
+    max_std_angels = 70
+    hatched = std_angles <= max_std_angels
     return hatched
 
 
@@ -215,7 +221,8 @@ def detect_handdrawings(gray_img, player_circles, field, disc_pos, show=cfg.show
         if hierarchy_component[3] < 0:
             cv2.drawContours(annotated, [contour], -1, cfg.cv2_orange, 2)
             if cv2.contourArea(contour) > min_area_px and is_hatched(contour, binary):
-                contour = cv2.convexHull(contour)[:, 0]
+                # contour = cv2.convexHull(contour)[:, 0]
+                contour = contour[:, 0]
                 cv2.drawContours(annotated, [contour], -1, cfg.cv2_green, 2)
                 areas.append(contour)
     cv_utils.display_img(annotated, wait=False) if show else None
