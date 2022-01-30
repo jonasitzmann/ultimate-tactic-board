@@ -1,6 +1,7 @@
 import cv2
 import cfg
 import numpy as np
+from masked_adaptive_threshold import masked_adaptive_threshold
 show_count = 0
 
 
@@ -14,6 +15,8 @@ def min_max_normalize(img):
 def crop_to_content(mask, img_to_crop=None, margin=0):
     img_to_crop = mask if img_to_crop is None else img_to_crop
     (y, x) = np.where(mask)
+    if len(y) == 0:
+        return None
     (topy, topx) = (np.min(y), np.min(x))
     (bottomy, bottomx) = (np.max(y), np.max(x))
     topx = max(topx - margin, 0)
@@ -33,7 +36,8 @@ def rotate_img(img, angle):
 def display_img(img, window_name=None, wait=True, pos=None, scale=None):
     global show_count
     if scale is None:
-        scale = cfg.resolution_x / cfg.max_num_windows / img.shape[1]
+        border_px = 10
+        scale = (cfg.resolution_x / cfg.max_num_windows - 2 * border_px) / img.shape[1]
     else:
         scale /= cfg.resize_factor
     pos = show_count if pos is None else pos
@@ -77,3 +81,4 @@ def adaptive_threshold(img, ksize, c):
     wrapper for cv2.adaptiveThreshold
     """
     return cv2.adaptiveThreshold(img, cfg.max_intensity, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, ksize, c)
+

@@ -25,6 +25,10 @@ radius_pixels_disc = int(radius_disc_cm * resize_factor * field_height_m // tact
 #
 min_intensity, max_intensity, medium_intensity = 0, 255, 100
 cv2_black = tuple([min_intensity] * 3)
+cv2_red = (min_intensity, min_intensity, max_intensity)
+cv2_yellow = (min_intensity, max_intensity, max_intensity)
+cv2_orange = (min_intensity, 150, max_intensity)
+cv2_green = (min_intensity, max_intensity, min_intensity)
 ksize_sharpening = 0.8
 ksize_blur_thresholded = 3
 
@@ -64,6 +68,12 @@ show_digits = False
 show_circles = True
 labeling_mode = False
 show_edges = False
+show_endzone_lines = False
+show_median_color = False
+show_field = False
+show_areas = False
 # demo_img = input_imgs_dir + '/not_supported/' + 'bad_perspective.jpg'
 demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective.jpg'
-# demo_img = input_imgs_dir + '/not_supported/' + 'all_together.jpg'
+demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective_rotated.jpg'
+demo_img = input_imgs_dir + '/not_supported/' + 'all_together.jpg'
+demo_img = input_imgs_dir + '/not_supported/' + 'arrows_and_areas.jpg'

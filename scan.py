@@ -14,6 +14,37 @@ import cv2
 os.system('unset SESSION_MANAGER')
 
 
+def get_median_line_color_in_img(line, img, show_median_color=cfg.show_median_color):
+    mask = np.zeros_like(img[:, :, 0])
+    cv2.line(mask, line[0], line[1], cfg.max_intensity, 1)
+    median_color = np.median(img[mask == cfg.max_intensity], axis=0)
+    if show_median_color:
+        colored_img = (np.ones((100, 100, 3)) * median_color).astype(np.uint8)
+        cv_utils.display_img(colored_img)
+    return median_color
+
+
+def rotate_red_ez_to_top_inplace(ez_lines, img, *imgs):
+    (b1, g1, r1), (b2, g2, r2) = [get_median_line_color_in_img(line, img) for line in ez_lines]
+    if r1 - b1 < r2 - b2:  # blue endzone is on top currently
+        for img_to_rotate in [img, *imgs]:
+            img_to_rotate[:] = np.rot90(np.rot90(img_to_rotate))
+
+
+def draw_field(img, ez_lines, show=cfg.show_field):
+    line_width_m = 0.4
+    lw_px = cfg.resize_factor * line_width_m
+    lw_px, half_lw_px = int(lw_px), int(lw_px / 2)
+    x0 = y0 = half_lw_px
+    y1, x1 = np.array(img.shape[:2]) - half_lw_px
+    field = np.zeros_like(img[:, :, 0])
+    lines = [((x0, y0), (x0, y1)), ((x1, y0), (x1, y1)), ((x0, y0), (x1, y0)), ((x0, y1), (x1, y1)), *ez_lines]
+    [cv2.line(field, p1, p2, cfg.max_intensity, lw_px) for p1, p2 in lines]
+    cv_utils.display_img(field) if show else None
+    return field
+
+
+
 def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circles, labeling_mode=cfg.labeling_mode):
     """
     Extracs the state (poses of players, disc position), from an input image
@@ -35,55 +66,65 @@ def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circl
     binary = cv2.medianBlur(binary, cfg.ksize_blur_thresholded)
     binary_black = cv_utils.adaptive_threshold(black_emphasized, ksize, cfg.offset_binarize_global)
     binary_black = cv2.medianBlur(binary_black, cfg.ksize_blur_thresholded)
-    ez1, ez2 = find_enzone_lines(img, binary_black)
-
+    ez_lines = find_enzone_lines(img, binary_black)
+    field = draw_field(img, ez_lines)
+    rotate_red_ez_to_top_inplace(ez_lines, img, gray, gray_blurred, white_emphasized, black_emphasized, binary, binary_black, field)
     annotated, players = img.copy(), []
-    for c in find_player_contours(binary):
+    player_contours, circles = find_player_contours(binary)
+    for c in player_contours:
         players.append(identify_player(img.copy(), c, cfg.radius_pixels, show_digits, labeling_mode))
         annotate_player(annotated, players[-1], c)
+    team_1, team_2 = cluster_players_by_color(players)
+    disc_pos = np.array(locate_disc(img, black_emphasized))
+    areas = np.array(detect_handdrawings(black_emphasized, circles, field, disc_pos)) / cfg.resize_factor
     for i, img_step in enumerate([gray, annotated] if show_circles else []):
         cv_utils.display_img(img_step, wait=False, window_name=str(i), pos=i)
-    team_1, team_2 = cluster_players_by_color(players)
-    # areas = np.array(detect_handdrawings(black_emphasized, circles)) / cfg.resize_factor
-    disc_pos = np.array(locate_disc(img, black_emphasized)) / cfg.resize_factor
-    areas = None
-    return state.State(players_team_1=team_1, players_team_2=team_2, areas=areas, disc=disc_pos)
+
+    return state.State(players_team_1=team_1, players_team_2=team_2, areas=areas, disc=disc_pos / cfg.resize_factor)
 
 
 def find_player_contours(binary, show_circles=False):
     lb, ub = [int(cfg.radius_pixels * factor) for factor in [cfg.player_radius_lb, cfg.player_radius_ub]]
-    circles = cv2.HoughCircles(binary, minDist=binary.shape[0]/100, minRadius=lb, maxRadius=ub, **cfg.h_circles_args)[0]
+    circles = cv2.HoughCircles(binary, minDist=binary.shape[0]/100, minRadius=lb, maxRadius=ub, **cfg.h_circles_args)[0].astype(np.uint16)
     players_mask = np.zeros_like(binary)
-    [cv2.circle(players_mask, (c[0], c[1]), cfg.radius_pixels, cfg.max_intensity, -1) for c in circles.astype(np.uint16)]
+    [cv2.circle(players_mask, (c[0], c[1]), cfg.radius_pixels, cfg.max_intensity, -1) for c in circles]
     player_contours = cv_utils.find_contours(players_mask)
     for i, img_step in enumerate([binary, players_mask] if show_circles else []):
         cv_utils.display_img(img_step, wait=False, window_name=str(i), pos=i)
-    return player_contours
+    return player_contours, circles
 
 
-def find_enzone_lines(img, binary_img):
-    cv_utils.display_img(binary_img)
-    distance_res = 1
-    angle_res = np.pi / 180
-    threshold = int(img.shape[1] * 0.5)
+def extend_line(line, x_start, x_end):
+    a, b = np.polyfit(x=line[[0, 2]], y=line[[1, 3]], deg=1)
+    y_start, y_end = [int(round(a * x + b)) for x in [x_start, x_end]]
+    return [x_start, y_start, x_end, y_end]
+
+
+def find_enzone_lines(img, binary_img, show_endzone_lines=cfg.show_endzone_lines):
+    # parameters
+    distance_res, angle_res = 1, np.pi / 180 / 2
+    expected_len = int(img.shape[1] * 0.5)  # false positives are ok because of further filtering
+    max_gap = int(0.2 * expected_len)
     endzone_height_px = cfg.endzone_height_m * cfg.resize_factor
-    epsilon = int(0.05 * endzone_height_px)
-    lines = cv2.HoughLinesP(binary_img, distance_res, angle_res, threshold, minLineLength=threshold, maxLineGap=int(0.2*threshold))
-    lines = lines[:, 0]
-    for l in lines if lines is not None else []:
-        cv2.line(img, (l[0], l[1]), (l[2], l[3]), (0,0,255), 3, cv2.LINE_AA)
-    lines = lines[np.abs(lines[:, 1] - lines[:, 3]) < epsilon]
-    upper_lines = lines[np.abs(lines[:, 1] - endzone_height_px) < epsilon]
-    ul = upper_lines[np.argmax(upper_lines[:, 3] - upper_lines[:, -1])]
-    cv2.line(img, (ul[0], ul[1]), (ul[2], ul[3]), (0, 255, 0), 3, cv2.LINE_AA)
-    lower_lines = lines[np.abs(lines[:, 1] - img.shape[0] + endzone_height_px) < epsilon]
-    ll = lower_lines[np.argmax(lower_lines[:, 3] - lower_lines[:, -1])]
-    cv2.line(img, (ll[0], ll[1]), (ll[2], ll[3]), (255, 0, 0), 3, cv2.LINE_AA)
-    cv_utils.display_img(img)
-    # needed for two reasons:
-    # - orientation of playing field (is the red endzone at top or bottom?)
-    # - removal of endzone lines for detecting arrows and areas
-    return None, None
+    epsilon_px = int(0.05 * endzone_height_px)
+
+    # algorithm
+    lines = cv2.HoughLinesP(binary_img, distance_res, angle_res, expected_len, None, expected_len, max_gap)[:, 0]
+    h_lines = lines[np.abs(lines[:, 1] - lines[:, 3]) < epsilon_px]
+    ez_lines = []
+    for expected_y in [endzone_height_px, img.shape[0] - endzone_height_px]:
+        matches = h_lines[np.abs(h_lines[:, 1] - expected_y) < epsilon_px]
+        best_match = matches[np.argmax(matches[:, 3] - matches[:, -1])]
+        ez_lines.append(extend_line(best_match, 0, img.shape[1]))
+
+    # visualization
+    if show_endzone_lines:
+        binary_img, img = [input_img.copy() for input_img in [binary_img, img]]
+        for line_list, color in [(lines, cfg.cv2_red), (ez_lines, cfg.cv2_green)]:
+            for l in line_list:
+                cv2.line(img, (l[0], l[1]), (l[2], l[3]), color, 3)
+        cv_utils.display_imgs([binary_img, img])
+    return [(l[:2], l[2:]) for l in ez_lines]
 
 
 def transform_to_birdseye(img, corners):
@@ -124,39 +165,61 @@ def locate_disc(img: np.array, gray_sharp) -> np.array:
     return disc_pos
 
 
-def detect_handdrawings(gray_img, player_contours, show_intermediate_results=True):
-    cv_utils.display_img(gray_img, wait=False) if show_intermediate_results else None
-    # todo: this is an experiment and has only been testen on a single image
-    gray_img[:, -5:] = gray_img[:, -6, None]  # todo: hack to remove artifact on right border
-    edges = cv2.Canny(gray_img, 100, 200)
-    [cv2.circle(edges, (c[0], c[1]), int(c[2]*2.2), cfg.min_intensity, -1) for c in player_contours.astype(np.uint16)]
-    # remove endzone lines
-    lw = int(0.5 * cfg.resize_factor)  # 1.5m in pixels
-    for height in [cfg.endzone_height_m, cfg.field_height_m - cfg.endzone_height_m]:
-        pts = np.array([[0, height], [cfg.field_width_m, height]])
-        pts = (pts * cfg.resize_factor).astype(np.int32)
-        cv2.line(edges, *pts, cfg.min_intensity, lw)  # use other method to remove the endzone line
-    cv_utils.display_img(edges, wait=False) if show_intermediate_results else None
-    lw = cv_utils.round_to_odd(lw)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (lw, lw))
-    iters = 3
-    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, None, None, iters, cv2.BORDER_CONSTANT, cfg.min_intensity)
-    cv_utils.display_img(edges, wait=False) if show_intermediate_results else None
-    contours = cv_utils.find_contours(edges)
-    areas = []
-    for contour in contours:
-        hull = cv2.convexHull(contour)
-        poly = cv2.approxPolyDP(hull, 100, True)  # todo: how to configure the allowed error?
-        hull_area, c_area = [cv2.contourArea(c) for c in [hull, contour]]
-        if c_area > 100:
-            if hull_area / c_area < 1.2:
-                poly = [np.array(p[0]) for p in poly]
-                areas.append(np.array(poly))
+def get_morph_circle(size):
+    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
 
-    cv2.drawContours(gray_img, areas, -1, cfg.max_intensity, -1)
-    cv_utils.display_img(gray_img, wait=False) if show_intermediate_results else None
-    areas = np.array(areas)
-    return areas
+
+def is_hatched(contour, binary, show=False):
+    contour, binary = contour.copy(), binary.copy()
+    lw = int(round(1.5 * cfg.resize_factor))
+    mask = np.zeros_like(binary)
+    cv2.drawContours(binary, [contour], -1, cfg.medium_intensity, lw)
+    cv2.drawContours(mask, [contour], -1, cfg.max_intensity, cfg.filled)
+    binary = cv_utils.crop_to_content(np.bitwise_and(binary, mask))
+    binary = cv2.ximgproc.thinning(binary)
+    thr = 10
+    max_gap = int(round(1 * cfg.resize_factor))
+    lines = cv2.HoughLinesP(binary, 1, np.pi / 180 / 3, thr, None, None, max_gap)[:, 0]
+    if show:
+        for l in lines:
+            cv2.line(binary, (l[0], l[1]), (l[2], l[3]), cfg.medium_intensity, 3)
+        cv_utils.display_img(binary)
+    angles = [np.arctan2([x0, x1], [y0, y1]) / np.pi * 180 for x0, y0, x1, y1 in lines]
+    min_lines_hatched = 3
+    std_angles = np.std(angles)
+    max_std_angels = 30
+    hatched = (len(angles) >= min_lines_hatched) and (std_angles <= max_std_angels)
+    return hatched
+
+
+def detect_handdrawings(gray_img, player_circles, field, disc_pos, show=cfg.show_areas):
+    mask = field.copy()
+    gray_img = cv2.medianBlur(gray_img, 9)
+    annotated = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
+    cv_utils.display_img(gray_img, wait=False) if show else None
+    pl_factor, disc_factor = 2.1, 1.8
+    [cv2.circle(mask, (c[0], c[1]), int(c[2] * pl_factor), cfg.max_intensity, cfg.filled) for c in player_circles]
+    cv2.circle(mask, disc_pos.astype(np.int32), int(cfg.radius_pixels_disc * disc_factor), cfg.max_intensity, cfg.filled)
+    binary = cv_utils.adaptive_threshold(gray_img, 55, -3)  # todo use masked adaptive threshold
+    binary[mask == 255] = 0
+    cv_utils.display_img(binary, wait=False) if show else None
+    kernel_size = cv_utils.round_to_odd(0.8 * cfg.resize_factor)  # approx. 80 cm
+    binary_dilated = cv2.dilate(binary, get_morph_circle(kernel_size))
+    cv_utils.display_img(binary_dilated, wait=False) if show else None
+    contours, hierarchy = cv2.findContours(binary_dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    min_area_mm = 5
+    min_area_px = min_area_mm * (cfg.resize_factor ** 2)
+    areas = []
+    [cv2.drawContours(annotated, [contour], -1, cfg.cv2_red, 2) for contour in contours]
+    for contour, hierarchy_component in zip(contours, hierarchy[0]):
+        if hierarchy_component[3] < 0:
+            cv2.drawContours(annotated, [contour], -1, cfg.cv2_orange, 2)
+            if cv2.contourArea(contour) > min_area_px and is_hatched(contour, binary):
+                contour = cv2.convexHull(contour)[:, 0]
+                cv2.drawContours(annotated, [contour], -1, cfg.cv2_green, 2)
+                areas.append(contour)
+    cv_utils.display_img(annotated, wait=False) if show else None
+    return np.array(areas)
 
 
 def annotate_player(img, player, player_contour):
