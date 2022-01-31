@@ -20,9 +20,9 @@ def main():
 def draw_scene(state: state.State):
     init_context()
     draw_background()
+    draw_field()
     if state.areas is not None:
         [draw_area(area, (0.7, 0.2, 0.2, 0.3)) for area in state.areas]
-    draw_field()
     [draw_player(player, (0.6, 0, 0)) for player in state.players_team_1]
     [draw_player(player, (0, 0, 0.6)) for player in state.players_team_2]
     if state.disc is not None:
@@ -31,7 +31,7 @@ def draw_scene(state: state.State):
 
 
 def draw_area(pts, color):
-    pts = m2p(pts)
+    pts = m2p(pts, add_border=True)
     ctx.set_line_width(0)
     ctx.set_source_rgba(*color)
     ctx.move_to(*pts[0])
@@ -92,7 +92,9 @@ def draw_background():
 
 
 @np.vectorize
-def m2p(x, rounded=True):
+def m2p(x, rounded=True, add_border=False):
+    if add_border:
+        x += cfg.border_size_m
     x = cfg.draw_scale * x
     if rounded:
         x = int(x)

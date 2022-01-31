@@ -36,8 +36,8 @@ ksize_blur_thresholded = 3
 ksize_initial_blur = 11
 field_detection_poly_epsilon = 150
 offset_binarize_global = -3
-ksize_thresh_field = 15
-offset_thresh_field = 1
+ksize_thresh_field = 7
+offset_thresh_field = -1
 
 # player detection
 ksize_blur_crop = 11
@@ -45,7 +45,7 @@ filled = -1
 
 # frame
 ksize_thresh_frame = 45
-offset_thresh_frame = -10
+offset_thresh_frame = -2
 
 h_circles_args = dict(method=cv2.HOUGH_GRADIENT, dp=1.8, param1=150, param2=25)
 h_circles_args_disc = dict(method=cv2.HOUGH_GRADIENT, dp=1.8, param1=150, param2=20)
@@ -71,9 +71,14 @@ show_edges = False
 show_endzone_lines = False
 show_median_color = False
 show_field = False
-show_areas = True
+show_areas = False
+show_arrows = False
+show_input = True
+show_transformed = False
 # demo_img = input_imgs_dir + '/not_supported/' + 'bad_perspective.jpg'
-demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective.jpg'
-demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective_rotated.jpg'
+# demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective.jpg'
+# demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective_rotated.jpg'
 # demo_img = input_imgs_dir + '/not_supported/' + 'all_together.jpg'
 # demo_img = input_imgs_dir + '/not_supported/' + 'arrows_and_areas.jpg'
+# demo_img = input_imgs_dir + '/not_supported/' + 'new_arrows.jpg'
+demo_img = input_imgs_dir + 'current.jpg'
