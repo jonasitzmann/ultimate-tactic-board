@@ -51,16 +51,20 @@ def draw_disc(disc_pos):
     ctx.fill()
 
 
-def animate_scene(state_1, state_2, num_steps, name='animation'):
+def animate_scene(states, fps=30, seconds_per_step=2, name='animation'):
     output_path = f'{cfg.media_out_dir}{name}'
     shutil.rmtree(output_path, ignore_errors=True)
     os.makedirs(output_path, exist_ok=True)
-    for i, frac in enumerate(np.linspace(0, 1, num_steps)):
-        state = state_1 * (1 - frac) + state_2 * frac
-        surface = draw_scene(state)
-        path = f'{output_path}/{i:04d}.png'
-        surface.write_to_png(path)
-    export_scene.save_video(output_path, fps=10)
+    frames_per_step = int(seconds_per_step * fps)
+    states = [states[0]] + states + [states[-1]]
+    for i, (state_1, state_2) in enumerate(zip(states, states[1:])):
+        for j, frac in enumerate(np.linspace(0, 1, frames_per_step)):
+            state = state_1 * (1 - frac) + state_2 * frac
+            surface = draw_scene(state)
+            frame_number = i * frames_per_step + j
+            path = f'{output_path}/{frame_number:04d}.png'
+            surface.write_to_png(path)
+    export_scene.save_video(output_path, fps=fps)
     shutil.rmtree(output_path)
 
 

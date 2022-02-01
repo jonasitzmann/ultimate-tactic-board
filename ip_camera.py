@@ -56,7 +56,7 @@ def download_photo(img_number=0, last_filename=None):
 def take_photo(save_path=cfg.camera_save_path, img_number_on_server=0):
     last_filename = find_photo(img_number_on_server)
     trigger_remote_camera(img_number_on_server)
-    i, delay, timeout = 0, 0.3, 3
+    i, delay, timeout = 0, 0.3, 10
     img_data = download_photo(img_number_on_server, last_filename)
     while img_data is None:
         if i * delay >= timeout:

@@ -34,7 +34,7 @@ class State:
         blue_players = [s + o for s, o in zip(self.players_team_2, other.players_team_2)]
         disc = self.disc + other.disc
         # todo handle disc position
-        return State(players_team_1=red_players, players_team_2=blue_players, areas=self.areas, disc=disc)
+        return State(players_team_1=red_players, players_team_2=blue_players, areas=other.areas, disc=disc)
 
     def __mul__(self, x):
         red_players = [s * x for s in self.players_team_1]

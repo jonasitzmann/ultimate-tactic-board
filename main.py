@@ -1,8 +1,10 @@
+import os
+import shutil
 import scan
 import drawer
 import cfg
 import ip_camera
-imgs_dir = 'input_imgs/'
+from glob import glob
 
 
 def main():
@@ -14,12 +16,43 @@ def main():
 
 
 def animate():
-    img_1, img_2 = imgs_dir + 'ho-stack-1.jpg', imgs_dir + 'ho-stack-2.jpg'
+    img_1, img_2 = cfg.input_imgs_dir + 'ho-stack-1.jpg', cfg.input_imgs_dir + 'ho-stack-2.jpg'
     state_1 = scan.scan(img_1)
     state_2 = scan.scan(img_2)
-    drawer.animate_scene(state_1, state_2, 30)
+    drawer.animate_scene([state_1, state_2, state_1], fps=60, seconds_per_step=2)
+
+
+def animation_from_image_folder(folder_path, name=None):
+    name = name if name is not None else os.path.basename(folder_path)
+    imgs = sorted(glob(f'{folder_path}/*.jpg'))
+    states = [scan.scan(img) for img in imgs]
+    [drawer.show(drawer.draw_scene(state), wait=0) for state in states]
+    drawer.animate_scene(states, name=name)
+
+
+def create_animation(name='current_animation'):
+    img_dir = cfg.input_imgs_dir + name
+    shutil.rmtree(img_dir, ignore_errors=True)
+    os.makedirs(img_dir)
+    i = 0
+    states = []
+    while input('take next photo (y/n)\n') == 'y':
+        filename = f'{img_dir}/{i}.jpg'
+        ip_camera.take_photo(filename)
+        state = scan.scan(filename)
+        drawer.show(drawer.draw_scene(state))
+        if input('ok? (y/n)\n') == 'y':
+            i += 1
+            states.append(state)
+        else:
+            os.remove(filename)
+    drawer.animate_scene(states, name=name)
+
+
 
 
 if __name__ == '__main__':
-    main()
-    # animate()
+    # main()
+    name = 'current_animation'
+    # animation_from_image_folder(cfg.input_imgs_dir + name, name)
+    create_animation()

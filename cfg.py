@@ -69,7 +69,7 @@ http_port = 8080
 udp_port = 8000
 camera_save_path = input_imgs_dir + 'current.jpg'
 img_prefix = 'IMG_'
-autofocus_time_seconds = 0  # delay to wait for autofocus
+autofocus_time_seconds = 1  # delay to wait for autofocus
 
 
 # options
