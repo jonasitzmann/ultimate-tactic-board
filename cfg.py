@@ -57,11 +57,20 @@ offset_thresh_digits = -6
 min_contour_area_digit = 20
 
 
-
 # drawing
 border_size_m = 3
 draw_scale = 8.7
 disc_size_m = 0.6
+
+
+# open camera remote server
+ip = '192.168.178.22'
+http_port = 8080
+udp_port = 8000
+camera_save_path = input_imgs_dir + 'current.jpg'
+img_prefix = 'IMG_'
+autofocus_time_seconds = 0  # delay to wait for autofocus
+
 
 # options
 show_digits = False

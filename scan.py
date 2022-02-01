@@ -91,7 +91,7 @@ def resize_img(img, show_resized=cfg.show_input):
         h, w = img.shape[:2]
     scale = h / 1280
     img = cv2.resize(img, (int(w / scale), int(h / scale)))
-    cv_utils.display_img(img, 'input img', wait=False) if show_resized else None
+    cv_utils.display_img(img, 'input', wait=False) if show_resized else None
     return img
 
 

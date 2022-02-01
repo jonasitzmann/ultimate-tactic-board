@@ -1,11 +1,13 @@
 import scan
 import drawer
 import cfg
+import ip_camera
 imgs_dir = 'input_imgs/'
 
 
 def main():
     # for img_path in [imgs_dir + 'ho-stack-1.jpg', imgs_dir + 'ho-stack-2.jpg']:
+    ip_camera.take_photo()
     player_positions = scan.scan(cfg.demo_img)
     surface = drawer.draw_scene(player_positions)
     drawer.show(surface, wait=0)

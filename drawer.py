@@ -109,7 +109,7 @@ def rel_line(x, y):
     ctx.rel_line_to(*m2p([x, y]))
 
 
-def show(surface, filename='temp', wait=10, pos=4):
+def show(surface, filename='result', wait=10, pos=4):
     os.makedirs(cfg.media_out_dir, exist_ok=True)
     path = f'{cfg.media_out_dir}/{filename}.png'
     surface.write_to_png(path)
