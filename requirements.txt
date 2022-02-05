@@ -67,3 +67,6 @@ urllib3==1.26.6
 virtualenv==20.7.2
 virtualenv-clone==0.5.6
 webencodings==0.5.1
+
+PyYAML~=6.0
+manim~=0.14.0

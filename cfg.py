@@ -7,6 +7,7 @@ input_imgs_dir = 'input_imgs/'
 media_out_dir = 'media_out/'
 data_dir = 'data/'
 reference_digits_dir = data_dir + 'reference_digits/'
+temp_dir = 'temp/'
 
 # dimensions
 resize_factor = 20
@@ -82,7 +83,7 @@ show_median_color = False
 show_field = False
 show_areas = False
 show_arrows = False
-show_input = True
+show_input = False
 show_transformed = False
 # demo_img = input_imgs_dir + '/not_supported/' + 'bad_perspective.jpg'
 # demo_img = input_imgs_dir + '/not_supported/' + 'better_perspective.jpg'
@@ -91,3 +92,4 @@ show_transformed = False
 # demo_img = input_imgs_dir + '/not_supported/' + 'arrows_and_areas.jpg'
 # demo_img = input_imgs_dir + '/not_supported/' + 'new_arrows.jpg'
 demo_img = input_imgs_dir + 'current.jpg'
+demo_state_path = temp_dir + 's.yaml'

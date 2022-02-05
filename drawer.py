@@ -145,7 +145,7 @@ def draw_player(player: state.Player, color):
     ctx.select_font_face("Serif", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
     ctx.set_font_size(m2p(2))
     pos = [m2p(player.pos[0] + cfg.border_size_m), m2p(player.pos[1] + cfg.border_size_m)]
-    text(player.label, pos, player.orientation)
+    text(player.label, pos, player.angle)
 
 
 def text(string, pos, orientation):

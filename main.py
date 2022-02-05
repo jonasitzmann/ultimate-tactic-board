@@ -49,10 +49,17 @@ def create_animation(name='current_animation'):
     drawer.animate_scene(states, name=name)
 
 
+def export_state():
+    state = scan.scan(f'{cfg.input_imgs_dir}/ho-stack-2.jpg')
+    state.save('temp/s_2.yaml')
 
 
 if __name__ == '__main__':
     # main()
-    name = 'current_animation'
+    # name = 'current_animation_2'
     # animation_from_image_folder(cfg.input_imgs_dir + name, name)
-    create_animation()
+    # create_animation()
+    # export_state()
+    player_positions = scan.scan(f'{cfg.input_imgs_dir}/ho-stack-1.jpg')
+    surface = drawer.draw_scene(player_positions)
+    drawer.show(surface, wait=0)
