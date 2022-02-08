@@ -7,9 +7,11 @@ import ip_camera
 from glob import glob
 
 
-def state_from_photo():
+def state_from_photo(show=False):
     ip_camera.take_photo()
     state = scan.scan(cfg.demo_img)
+    if show:
+        drawer.show(drawer.draw_scene(state), wait=1000)
     return state
 
 

@@ -1,13 +1,19 @@
+import sys
+# sys.argv.append('--renderer=opengl')
+from cv_utils import round_to_odd
+import cfg
 from manim import *
+from glob import glob
 import inspect
 import os
 from state import State
 from functools import partial
-landscape_scale = (config['frame_x_radius'] - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # landscape
-portrait_scale = (config['frame_y_radius'] - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # portrait
+landscape_scale = (config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # landscape
+portrait_scale = (config.frame_y_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # portrait
+portrait_scale_no_buffer = config.frame_y_radius / 50
 
-myred = '#9c360d'
-myblue = '#3a32ff'
+myred = '#c22a2a'
+myblue = '#44496f'
 
 class MState(VGroup):
     def __init__(self, state: State, cs=None):
@@ -39,19 +45,20 @@ class MState(VGroup):
 
 
 class Field(VGroup):
-    def __init__(self, state=None, **kwargs):
+    def __init__(self, state=None, height=10, **kwargs):
         VGroup.__init__(self, **kwargs)
-        self.cs = FrameOfReference(100, 37, landscape_scale)
+        scale = height / 100
+        self.cs = FrameOfReference(100, 37, scale)
         self.add(self.cs)
-        self.state = None
-        h, w = np.array([100, 37]) * landscape_scale
-        ez_height = 18 * landscape_scale
+        self.state = state or MState(cs=self.cs)
+        h, w = np.array([100, 37]) * scale
+        ez_height = 18 * scale
         self.add(Rectangle(height=h, width=w, fill_color='#728669', fill_opacity=0.7))
-        for direction in [UP, DOWN]:
-            self.add(Line(ORIGIN, w * RIGHT).shift(w / 2 * LEFT + (h / 2 - ez_height) * direction))
+        for direction, color in zip([UP, DOWN], [myblue, myred]):  # todo: actually, red is up and blue is down
+            self.add(Line(ORIGIN, w * RIGHT, color=color).shift(w / 2 * LEFT + (h / 2 - ez_height) * direction))
             self.add(Cross(stroke_color=WHITE, scale_factor=0.05, stroke_width=3).shift((h/2 - 2*ez_height) * direction))
-        if state is not None:
-            self.load(state)
+        self.add(Rectangle(height=h, width=w))
+        self.load(state)
 
     def load(self, state: MState):
         self.remove(self.state)
@@ -81,7 +88,7 @@ class FrameOfReference(Axes):
 
 class MPlayer(Ellipse):
     def __init__(self, angle, position, frame_of_ref: FrameOfReference, color=None, role='o'):
-        size = np.array([1.5, 1.5] if role == 'o' else [2.3, 0.5]) * frame_of_ref.current_scale()
+        size = np.array([1.5, 1.5] if role == 'd' else [2.3, 0.5]) * frame_of_ref.current_scale()
         self.role = role
         if color is None:
             color = myred if self.is_o else myblue
@@ -114,27 +121,28 @@ class UltimateScene(Scene):
         self.play = partial(self.play, run_time=3)
         s1, s2 = MState(State.load('temp/s.yaml')), MState(State.load('temp/s_2.yaml'))
         tex = Tex('Die \glqq Nasen\grqq~ zeigen die Blickrichtung der Spieler').to_corner(UP + LEFT)
-        field = Field(s1).rotate(90*DEGREES).next_to(tex, DOWN, aligned_edge=LEFT)
+        field = Field(s1).scale((config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 5).rotate(90*DEGREES)
+        field.next_to(tex, DOWN, aligned_edge=LEFT)
         self.play(Write(tex), DrawBorderThenFill(field))
         self.play(*field.transition(s1, s2))
-        # self.play(FadeOut(tex), field.animate.scale(ls2pt).rotate(90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
-        # tex = Tex(r"""
-        # Das Spielfeld kann auch hochkant angezeigt werden\\
-        # um Platz für lange Erläuterungen zu haben.
-        # \begin{itemize}
-        #  \item Die Spieler entscheiden jetzt selbst,\\
-        #  ob sie nach rechts oder links drehen
-        #  \item Allerdings sind ihre Bewegungen insgesamt noch unrealistisch,\\
-        #  weil sie nicht in Blickrichtung laufen.
-        #  \item Irgendwann sieht man hier auch ne Scheibe
-        #  \item Auch hochkant funktionieren alle Bewegungen
-        # \end{itemize}
-        # """, font_size=35).to_edge(LEFT)
-        # self.play(Write(tex))
-        # self.wait(7)
-        # self.play(*field.transition(s2, s1))
-        # self.wait(2)
-        # self.play(FadeOut(tex, run_time=1), field.animate.move_to(ORIGIN).rotate(-90*DEGREES).scale(1 / ls2pt))
+        self.play(FadeOut(tex), field.animate.scale(ls2pt).rotate(90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
+        tex = Tex(r"""
+        Das Spielfeld kann auch hochkant angezeigt werden\\
+        um Platz für lange Erläuterungen zu haben.
+        \begin{itemize}
+         \item Die Spieler entscheiden jetzt selbst,\\
+         ob sie nach rechts oder links drehen
+         \item Allerdings sind ihre Bewegungen insgesamt noch unrealistisch,\\
+         weil sie nicht in Blickrichtung laufen.
+         \item Irgendwann sieht man hier auch ne Scheibe
+         \item Auch hochkant funktionieren alle Bewegungen
+        \end{itemize}
+        """, font_size=35).to_edge(LEFT)
+        self.play(Write(tex))
+        self.wait(7)
+        self.play(*field.transition(s2, s1))
+        self.wait(2)
+        self.play(FadeOut(tex, run_time=1), field.animate.move_to(ORIGIN).rotate(-90*DEGREES).scale(1 / ls2pt))
         self.wait(3)
 
 
@@ -145,8 +153,7 @@ class MovePlayer(Animation):
         self.radians = get_minimum_rotation(target.angle - mobject.angle)
         self.cs = cs
         avg_speed_kmh = np.linalg.norm(target.position - mobject.position) / real_time * 3.6
-        max_speed_floating = 10
-        self
+        max_speed_floating = 50
         if avg_speed_kmh > max_speed_floating:
             self.interpolate_mobject = self.beam_interpolation  # todo: how to interpolate fast players?
         else:
@@ -162,16 +169,74 @@ class MovePlayer(Animation):
         pos = self.cs.c2p(*((1 - k) * self.mobject.position) + k * self.end_pose.position)
         self.mobject.move_to(pos)
 
-def create_movie(cls, debug=False, hq=False):
+def create_movie(cls, debug=False, opengl=False, hq=False):
     if debug:
-        cls().render(True)
+        obj = cls()
+        obj.render(True)
     else:
         cls_name, cls_path = cls.__name__, inspect.getfile(cls)
-        os.system(f'~/.conda/envs/tactics_board/bin/manim -pq{"h" if hq else "l"} {cls_path} {cls_name}')
+        os.system(f'~/.conda/envs/tactics_board/bin/manim {"--renderer=opengl" if opengl else ""} -pq{"h" if hq else "l"} {cls_path} {cls_name}')
+
+
+class StateImg(Scene):
+    @staticmethod
+    def get(state=None):
+        if state is None:
+            state = State.load('temp/s_copy.yaml')
+        scene = StateImg(state)
+        scene.render()
+        img_path = scene.renderer.file_writer.image_file_path
+        print(img_path)
+        return str(img_path)
+
+
+    def __init__(self, state, *args, **kwargs):
+        self.state = state
+        config.pixel_width = 1500
+        fh = config.frame_width
+        config.frame_height = fh * 37 / 100
+        config.pixel_height = round_to_odd(config.pixel_width * 37 / 100) + 1
+        config.frame_height = config.frame_width * 37 / 100
+        super().__init__(*args, **kwargs)
+
+    def construct(self):
+        s1 = MState(self.state)
+        self.add(Field(s1, height=10).scale(config.frame_width / 10).rotate(90 * DEGREES))
+
+class DirAnimation(Scene):
+    def __init__(self, *args, **kwargs):
+        sort_func = lambda filepath: f'{int(filepath.split("/")[-1].split(".")[0]):02d}'
+        self.states = [MState(State.load(f)) for f in sorted([f for f in glob(f'{cfg.current_play_dir}/*.yaml')], key=sort_func)]
+        config.pixel_height = 1080
+        config.pixel_width = 1920
+        config.frame_height = 8
+        config.frame_width = 8 * 1920 / 1080
+        super().__init__(*args, **kwargs)
+
+    def construct(self):
+        field = Field(self.states[0], height=10).scale(config.frame_width / 10).rotate(90 * DEGREES)
+        self.add(field)
+        for s1, s2 in zip(self.states, self.states[1:]):
+            field.load(s1)
+            animations = field.transition(s1, s2)
+            self.play(*animations, run_time=3)
+
+
+def animation_from_state_dir():
+    create_movie(DirAnimation)
+
+
+
 
 if __name__ == '__main__':
-    debug = False
-    hq = False
-    create_movie(UltimateScene, debug, hq)
+    animation_from_state_dir()
+    # StateImg.get()
+    # debug = True
+    # hq = False
+    # opengl = False
+    # create_movie(UltimateScene, debug=debug, hq=hq, opengl=opengl)
     # create_movie(LocalFrameOfReference)
+
+    # from manim.renderer.opengl_renderer import OpenGLRenderer
+    from timeit import Timer
 

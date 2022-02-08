@@ -73,8 +73,14 @@ def round_to_odd(x):
     :param x: some number (float or int)
     :return: nearst odd integer
     """
-    return round((x - 1) / 2) * 2 + 1
+    return int(round((x - 1) / 2) * 2 + 1)
 
+def round_to_even(x):
+    """
+    :param x: some number (float or int)
+    :return: nearst odd integer
+    """
+    return int(round(x / 2) * 2)
 
 def adaptive_threshold(img, ksize, c):
     """

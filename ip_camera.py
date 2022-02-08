@@ -1,3 +1,5 @@
+import os
+
 import urllib3
 import socket
 import cfg
@@ -65,6 +67,7 @@ def take_photo(save_path=cfg.camera_save_path, img_number_on_server=0):
         i += 1
         time.sleep(delay)
         img_data = download_photo(img_number_on_server, last_filename)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with open(save_path, 'wb') as f:
         f.write(img_data)
     return True

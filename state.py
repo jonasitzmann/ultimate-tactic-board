@@ -24,7 +24,7 @@ class Player:
 
     @property
     def manimpos(self):
-        return np.array([self.pos[0], self.pos[1], 0])
+        return np.array([cfg.field_width_m - self.pos[0], self.pos[1], 0])
 
     def __add__(self, other):
         assert(other.label == self.label)
@@ -54,7 +54,7 @@ class State:
         self.players_team_1 = sorted(players_team_1 or [])
         self.players_team_2 = sorted(players_team_2 or [])
         self.disc = np.array(disc)
-        self.areas = np.array(areas)
+        self.areas = np.array(areas or [])
 
     def __add__(self, other):
         red_players = [s + o for s, o in zip(self.players_team_1, other.players_team_1)]

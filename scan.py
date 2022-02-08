@@ -288,6 +288,10 @@ def cluster_players_by_color(players: List[state.Player]):
     :param players: list of players to be clustered
     :return: two lists containing the players of team 1 (light) and team 2 (dark)
     """
+    if len(players) < 2:
+        print('only one player detected')
+        print(players[0].angle)
+        return players, []
     team_1, team_2 = [], []
     kmeans = KMeans(n_clusters=2)
     colors = np.array([p.color for p in players])
