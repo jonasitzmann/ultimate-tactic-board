@@ -7,6 +7,12 @@ import ip_camera
 from glob import glob
 
 
+def state_from_photo():
+    ip_camera.take_photo()
+    state = scan.scan(cfg.demo_img)
+    return state
+
+
 def main():
     # for img_path in [imgs_dir + 'ho-stack-1.jpg', imgs_dir + 'ho-stack-2.jpg']:
     ip_camera.take_photo()
