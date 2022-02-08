@@ -2,4 +2,7 @@
 data/MNIST/
 input_imgs/
 media_out/*
-media/*
+media/
+plays/
+
+
