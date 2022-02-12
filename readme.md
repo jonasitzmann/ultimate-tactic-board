@@ -4,7 +4,7 @@ Python project for generating ultimate frisbee tactic animation from photos of t
 
 Example:
 ---
-![](examples/tactic_board.gif)
+![](examples/UltimateScene.gif)
 
 
 About
