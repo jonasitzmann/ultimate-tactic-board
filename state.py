@@ -24,7 +24,7 @@ class Player:
 
     @property
     def manimpos(self):
-        return np.array([cfg.field_width_m - self.pos[0], self.pos[1], 0])
+        return np.array([cfg.field_width_m - self.pos[0], self.pos[1], 1])
 
     def __add__(self, other):
         assert(other.label == self.label)

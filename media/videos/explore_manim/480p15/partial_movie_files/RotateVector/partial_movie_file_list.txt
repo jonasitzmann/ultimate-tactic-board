@@ -1,6 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:/home/jonas/Documents/rotpot/ultimate-tactic-board/media/videos/explore_manim/480p15/partial_movie_files/RotateVector/3163782288_3907110523_490690110.mp4'
-file 'file:/home/jonas/Documents/rotpot/ultimate-tactic-board/media/videos/explore_manim/480p15/partial_movie_files/RotateVector/2201830969_1899957687_490690110.mp4'
-file 'file:/home/jonas/Documents/rotpot/ultimate-tactic-board/media/videos/explore_manim/480p15/partial_movie_files/RotateVector/2201830969_398514950_1974090156.mp4'
-file 'file:/home/jonas/Documents/rotpot/ultimate-tactic-board/media/videos/explore_manim/480p15/partial_movie_files/RotateVector/2201830969_1570672635_1647249798.mp4'
-file 'file:/home/jonas/Documents/rotpot/ultimate-tactic-board/media/videos/explore_manim/480p15/partial_movie_files/RotateVector/2201830969_398514950_2665850265.mp4'

@@ -16,7 +16,8 @@ from kivy.uix.relativelayout import RelativeLayout
 from kivy.core.window import Window
 from cfg import field_height_m, field_width_m
 from state import State, Player
-from explore_manim import StateImg, animation_from_state_dir
+import manim_animations
+
 Window.size, player_width = (1500, 650), 40
 kv = '''
 <PlayerWidget>:
@@ -101,7 +102,7 @@ class Field(RelativeLayout):
         self.play_dir = get_play_dir()
         self.size_hint = None, None
         self.state = State()
-        self.img_source = StateImg.get(self.state)
+        self.img_source = manim_animations.StateImg.get(self.state)
         self.size_hint = (None, None)
         self.frame_number = 1
         self.current_player_role = None
@@ -113,12 +114,11 @@ class Field(RelativeLayout):
         self.reset()
         self.edit_players_mode()
 
-
     def render(self):
         shutil.rmtree(cfg.current_play_dir, ignore_errors=True)
         shutil.copytree(self.play_dir, cfg.current_play_dir)
-        animation_from_state_dir()
-        App.get_running_app().stop()
+        manim_animations.animation_from_state_dir(f'{cfg.current_play_dir}/animation.mp4', play=True)
+        # App.get_running_app().stop()
 
     def on_touch_down(self, touch):
         super().on_touch_down(touch)
@@ -127,7 +127,7 @@ class Field(RelativeLayout):
         if not self.collide_point(*touch.pos):
             return
         pos = self.pix2pos(touch.x, touch.y)
-        plist = self.state.players_team_2 if self.current_player_role == 'o' else self.state.players_team_1
+        plist = self.state.players_team_1 if self.current_player_role == 'o' else self.state.players_team_2
         label = str(max([int(p.label) for p in plist]) + 1) if plist else '1'
         player = Player(pos, label=label)
         self.current_player = PlayerWidget(player, self)
@@ -144,10 +144,8 @@ class Field(RelativeLayout):
             return
         pos1 = self.current_player.player_state.pos
         pos2 = self.pix2pos(touch.x, touch.y)
-        self.current_player.player_state.angle = int(np.arctan2(*(pos2-pos1)) * 180 / np.pi + 180)
+        self.current_player.player_state.angle = int(np.arctan2(*(pos2 - pos1)) * 180 / np.pi + 180)
         self.update_img()
-
-
 
     def save_state(self):
         self.state.save(f'{self.play_dir}/{self.frame_number}.yaml')
@@ -174,10 +172,8 @@ class Field(RelativeLayout):
     def scale(self):
         return max([self.h, self.w]) / field_height_m
 
-
-
     def update_img(self):
-        self.image.source = StateImg.get(self.state)
+        self.image.source = manim_animations.StateImg.get(self.state)
         self.image.reload()
         return self.image
 

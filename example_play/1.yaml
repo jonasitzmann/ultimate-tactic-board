@@ -4,15 +4,15 @@ players_team_1:
 - color: [56, 64, 104]
   label: '1'
   orientation: 179
-  pos: [1, 90]
+  pos: [28.75, 22.5]
 - color: [60, 70, 109]
   label: '2'
   orientation: 169
-  pos: [19.55, 97.1]
+  pos: [19.55, 27.1]
 - color: [77, 85, 127]
   label: '3'
   orientation: 173
-  pos: [9.0, 50.25]
+  pos: [9.0, 20.25]
 - color: [44, 51, 101]
   label: '4'
   orientation: 168

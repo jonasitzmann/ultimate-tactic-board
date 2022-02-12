@@ -2,6 +2,11 @@ Ultimate Tactic Board
 ===
 Python project for generating ultimate frisbee tactic animation from photos of tactic board
 
+Example:
+---
+![](examples/tactic_board.gif)
+
+
 About
 ---
 This project aims to facilitate creating ultimate frisbee playbooks.
