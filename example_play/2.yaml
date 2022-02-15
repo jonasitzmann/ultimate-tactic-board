@@ -1,9 +1,9 @@
 areas: []
-disc: [30.6, 28.0]
+disc: [22.6, 37.0]
 players_team_1:
 - color: [57, 64, 103]
   label: '1'
-  orientation: 183
+  orientation: 140
   pos: [28.75, 22.6]
 - color: [59, 69, 109]
   label: '2'
@@ -16,11 +16,11 @@ players_team_1:
 - color: [56, 64, 110]
   label: '4'
   orientation: 160
-  pos: [22.15, 41.95]
+  pos: [15, 35.95]
 - color: [54, 62, 110]
   label: '5'
   orientation: 152
-  pos: [22.5, 53.3]
+  pos: [22.5, 47.3]
 - color: [57, 67, 108]
   label: '6'
   orientation: 166

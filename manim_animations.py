@@ -1,16 +1,14 @@
 from contextlib import contextmanager
 import ultimate_scene
+from functools import partial
 
-import vlc
 from cv_utils import round_to_odd
 import cfg
 from manim import *
 from glob import glob
 import inspect
 import os
-import subprocess
 from state import State
-from functools import partial
 landscape_scale = (config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # landscape
 portrait_scale = (config.frame_y_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # portrait
 portrait_scale_no_buffer = config.frame_y_radius / 50
@@ -18,10 +16,20 @@ portrait_scale_no_buffer = config.frame_y_radius / 50
 myred = '#c22a2a'
 myblue = '#44496f'
 
+
+def get_trapezoid(vanishing_pt, shorter_side_pt_1, shorter_side_pt_2, distance):
+    pts = [shorter_side_pt_1, shorter_side_pt_2]
+    for pt in pts[::-1]:
+        direction = Line(vanishing_pt, pt).get_unit_vector()
+        pts.append(vanishing_pt + direction * distance)
+    return Polygon(*pts)
+
+
+
 class MState(VGroup):
     def __init__(self, state, cs=None):
         self.cs = cs
-        self.offense, self.defense, self.disc = VDict(), VDict(), Mobject()
+        self.offense, self.defense, self.disc = VDict(), VDict(), None
         self.state = state
         if cs is not None:
             self.update_cs()
@@ -43,27 +51,29 @@ class MState(VGroup):
                 fill_opacity=1,
                 radius=0.5 * self.cs.current_scale(),
             ).shift(self.cs.c2p(*self.state.disc))
-            self.disc.z_index = 3
+            self.disc.z_index = 2
             self.add(self.disc)
 
-    def get_animations(self, new_state):
+    def get_animations(self, new_state, disc_delay=0.5):
         movements = []
         for current, target in [(self.offense, new_state.offense), (self.defense, new_state.defense)]:
             for k, v in current.submob_dict.items():
                 t = target.submob_dict.get(k, None)
                 if t is not None:
                     movements.append(MovePlayer(v, t, self.cs))
+        if self.disc is not None and new_state.disc is not None:
+            movements.append(MoveDisc(self.disc, new_state.disc, disc_delay))
         return movements
 
 
     @contextmanager
-    def marker_shadow(self, scene):
+    def marker_shadow(self):
         shadow = always_redraw(self.get_marking_shadow)
-        scene.add(shadow)
-        scene.play(FadeIn(shadow), run_time=0.8)
+        global_scene.add(shadow)
+        global_scene.play(FadeIn(shadow), run_time=0.8)
         yield
-        scene.play(FadeOut(shadow), run_time=0.8)
-        scene.remove(shadow)
+        global_scene.play(FadeOut(shadow), run_time=0.8)
+        global_scene.remove(shadow)
 
     def get_marking_shadow(self):
         marking_reach = 2 * self.cs.current_scale()
@@ -73,18 +83,23 @@ class MState(VGroup):
         marking_shadow_size = 30 * self.cs.current_scale()
         marking_line = Line(d_pos + 0.5 * marking_reach * LEFT, d_pos + 0.5 * marking_reach * RIGHT)
         marking_line.rotate(marker.angle + self.cs.get_angle())
-        pts = [marking_line.get_start(), marking_line.get_end()]
-        for pt in pts[::-1]:
-            direction = Line(o_pos, pt).get_unit_vector()
-            pts.append(o_pos + direction * marking_shadow_size)
-        area = Polygon(*pts)
+        area = get_trapezoid(o_pos, marking_line.get_start(), marking_line.get_end(), marking_shadow_size)
         area = Intersection(area, self.cs.rect, stroke_width=0, fill_color=marker.get_color(), fill_opacity=0.3)
         area.z_index = 1
         return area
 
+    def get_player(self, player_name):
+        role, label = player_name[0], player_name[1:]
+        plist = self.offense if role == 'o' else self.defense
+        return plist[label]
 
+
+
+
+global_scene = None
 
 class Field(VGroup):
+    global scene
     def __init__(self, scene=None, state=None, height=10, scale_for_landscape=True, **kwargs):
         VGroup.__init__(self, **kwargs)
         scale = height / 100
@@ -102,11 +117,16 @@ class Field(VGroup):
         self.load(state)
         if scale_for_landscape:
             self.scale((config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 5).rotate(90 * DEGREES)
-        if scene is not None:
-            scene.add(self)
+        global global_scene
+        global_scene = scene
+        if global_scene is not None:
+            global_scene.add(self)
 
-    def landscape_to_portrait(self, scene):
-        scene.play(self.animate.scale(ls2pt).rotate(90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
+    def landscape_to_portrait(self):
+        global_scene.play(self.animate.scale(ls2pt).rotate(90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
+
+    def portrait_to_landscape(self):
+        global_scene.play(self.animate.scale(1 / ls2pt).rotate(-90 * DEGREES).move_to(ORIGIN))
 
     def load(self, state: MState):
         self.remove(self.s)
@@ -114,9 +134,80 @@ class Field(VGroup):
         self.s.update_cs(self.cs)
         self.add(self.s)
 
-    def transition(self, scene, s2: MState, run_time=4):
+    def transition(self, s2: MState, run_time=4):
         s2.update_cs(self.cs)
-        scene.play(*self.s.get_animations(s2), run_time=run_time)
+        global_scene.play(*self.s.get_animations(s2), run_time=run_time)
+
+    def contextmanager_animation(self, submobject_getter, **kwargs):
+        def wrapper():
+            submobject = always_redraw(partial(submobject_getter, **kwargs))
+            global_scene.add(submobject)
+            global_scene.play(FadeIn(submobject), run_time=1)
+            yield
+            global_scene.play(FadeOut(submobject), run_time=1)
+            global_scene.remove(submobject)
+        ctx_mng = contextmanager(wrapper)()
+        return ctx_mng
+
+    def highlight(self, player_name):
+        player = self.s.get_player(player_name)
+        return self.contextmanager_animation(player.get_highlight)
+
+    def marker_shadow(self):
+        return self.contextmanager_animation(self.s.get_marking_shadow)
+
+    def field_of_view(self, player_name):
+        """
+        :param scene: the scene to show the animations
+        :param player_name: e.g. f'o1' for offense['1'] or d6 for defense['6']
+        :return: contextmanager inside which the field of view is shown
+        """
+        player = self.s.get_player(player_name)
+        return self.contextmanager_animation(player.get_field_of_view, field=self)
+
+    def measure_distance(self, p1, p2, distance=None):
+        p1, p2 = self.s.get_player(p1), self.s.get_player(p2)
+        return self.contextmanager_animation(self.get_distance_measurement, p1=p1, p2=p2, distance=distance)
+
+    def measure_angle(self, p1, p2, angle=None):
+        p1, p2 = self.s.get_player(p1), self.s.get_player(p2)
+        return self.contextmanager_animation(self.get_angle_measurement, p1=p1, p2=p2, angle=angle)
+
+    def get_distance_measurement(self, p1, p2, distance=None):
+        if distance is None:
+            distance = np.linalg.norm(p1.position - p2.position)
+        brace = BraceBetweenPoints(p1.get_center(), p2.get_center(), buff=1 * self.cs.current_scale()).set_z_index(3)
+        brace.add(brace.get_text(rf'${int(round(distance))}$\,m').set_font_size(30).set_z_index(3))
+        return brace
+
+    def get_angle_measurement(self, p1, p2, angle=None):
+        line = Line(p1.get_center(), p2.get_center())
+        p1_x, p1_y = p1.position[:2]
+        support_line_pos = Line(p1.get_center(), self.cs.c2p(cfg.field_width_m, p1_y))
+        support_line_neg = Line(p1.get_center(), self.cs.c2p(0, p1_y))
+        if angle is None:
+            angle = (np.arctan2(*(p2.position - p1.position)[:2][::-1]) % TAU) / DEGREES
+        if angle < 90:  # q1
+            angle_to_line = angle
+            line_1, line_2 = support_line_pos, line
+        elif angle < 180:  # q2
+            angle_to_line = 180 - angle
+            line_1, line_2 = line, support_line_neg
+        elif angle < 270:  # q3
+            angle_to_line = angle - 180
+            line_1, line_2 = support_line_neg, line
+        else:  # q4
+            angle_to_line = 360 - angle
+            line_1, line_2 = line, support_line_pos
+        angle_mob = Angle(line_1, line_2, radius=2.5 * self.cs.current_scale())
+        tex = Tex(rf'${int(round(angle_to_line))}^\circ$').set_font_size(25).move_to(
+            Angle(line_1, line_2, radius=2.5 * self.cs.current_scale() + MED_LARGE_BUFF).point_from_proportion(0.5))
+
+
+        return VGroup(line_1, line_2, angle_mob, tex).set_z_index(3)
+
+
+
 
 
 class FrameOfReference(Axes):
@@ -162,7 +253,7 @@ class MPlayer(VGroup):
         self.move_to(self.frame_of_ref.c2p(*position))
 
     def get_highlight(self):
-        hightlight_opacity = 0.3
+        hightlight_opacity = 0.4
         c = Circle(
             radius=3 * self.frame_of_ref.current_scale(),
             fill_color=self.get_color(),
@@ -171,18 +262,32 @@ class MPlayer(VGroup):
         ).shift(self.get_center() + IN)
         return c
 
+    def get_field_of_view(self, field: Field):
+        rect = field.rect.copy()
+        reach = 50 * self.frame_of_ref.current_scale()
+        opening_angle = 130 * DEGREES
+        angle = self.frame_of_ref.get_angle() + self.angle + (PI - opening_angle) / 2
+        field_of_view = AnnularSector(
+            inner_radius=0,
+            outer_radius=reach,
+            angle=opening_angle,
+            start_angle=angle,
+        ).shift(self.get_center())
+        gray_area = Difference(rect, field_of_view)
+        gray_area.set_fill(BLACK, opacity=0.6).set_z_index(3).set_stroke(width=0)
+        return gray_area
 
 
 
 
 
     @contextmanager
-    def highlight(self, scene):
+    def highlight(self):
         c = self.get_highlight()
-        scene.play(FadeIn(c), run_time=0.8)
+        global_scene.play(FadeIn(c), run_time=0.8)
         self.add(c)
         yield
-        scene.play(FadeOut(c), run_time=0.8)
+        global_scene.play(FadeOut(c), run_time=0.8)
         self.remove(c)
 
 
@@ -194,11 +299,36 @@ def get_minimum_rotation(radians):
 
 ls2pt = portrait_scale / landscape_scale
 
+def delayed(func, delay):
+    def wrapper(alpha):
+        scale = 1 / (1 - delay)
+        delayed_alpha = max([alpha - delay, 0]) * scale
+        return func(delayed_alpha)
+    return wrapper
+
+
+class MoveDisc(Animation):
+    # todo: calc delay and inflection based on the range and avg. speed of the throw
+    # todo: eg: short throws move linearly while long thros slow down significantly
+    def __init__(self, disc, target, delay, *args, **kwargs):
+        super().__init__(disc, *args, **kwargs)
+        self.target = target
+        self.target_pos = self.target.get_center()
+        self.start_pos = disc.get_center()
+        self.rate_func = delayed(partial(rush_from, inflection=5), delay)
+
+    def interpolate_mobject(self, alpha):
+        k = self.rate_func(alpha)
+        self.mobject.move_to((1-k) * self.start_pos + k * self.target_pos)
+
+
+
 
 
 class MovePlayer(Animation):
     def __init__(self, mobject, target, cs: FrameOfReference, real_time=4, *args, **kwargs):
         super().__init__(mobject, *args, **kwargs)
+        self.rate_func = partial(smooth, inflection=4)
         self.end_pose = target
         self.radians = get_minimum_rotation(target.angle - mobject.angle)
         self.cs = cs
@@ -209,8 +339,8 @@ class MovePlayer(Animation):
         else:
             self.interpolate_mobject = self.float_interpolation
 
-    def beam_interpolation(self, alpha):
-        self.mobject.become(self.starting_mobject if self.rate_func(alpha) < 0.5 else self.end_pose)
+    # def beam_interpolation(self, alpha):
+    #     self.mobject.become(self.starting_mobject if self.rate_func(alpha) < 0.5 else self.end_pose)
 
     def float_interpolation(self, alpha: float) -> None:
         self.mobject.become(self.starting_mobject)
@@ -218,7 +348,7 @@ class MovePlayer(Animation):
         self.mobject.angle = self.starting_mobject.angle + k * self.radians
         self.mobject.position = self.starting_mobject.position + k * (self.end_pose.position - self.starting_mobject.position)
         self.mobject.rotate(k * self.radians)
-        pos = self.cs.c2p(*((1 - k) * self.mobject.position) + k * self.end_pose.position)
+        pos = self.cs.c2p(*((1 - k) * self.starting_mobject.position) + k * self.end_pose.position)
         self.mobject.move_to(pos)
 
 def create_movie(cls, debug=False, opengl=False, hq=False, output_file=None, play=False):
@@ -264,6 +394,7 @@ class StateImg(Scene):
         self.add(Field(state=s1, height=10, scale_for_landscape=False).scale(config.frame_width / 10).rotate(90 * DEGREES))
 
 
+
 def get_states_from_dir(dir_path):
     sort_func = lambda filepath: f'{int(filepath.split("/")[-1].split(".")[0]):02d}'
     states = [MState(State.load(f)) for f in
@@ -281,12 +412,11 @@ class DirAnimation(Scene):
         super().__init__(*args, **kwargs)
 
     def construct(self):
-        field = Field(state=self.states[0], height=10).scale(config.frame_width / 10).rotate(90 * DEGREES)
+        field = Field(state=self.states[0], scale_for_landscape=True)
         self.add(field)
         for s1, s2 in zip(self.states, self.states[1:]):
             field.load(s1)
-            animations = field.transition(s1, s2)
-            self.play(*animations, run_time=3)
+            field.transition(self, s2)
 
 
 def animation_from_state_dir(output_file=None, play=False):
@@ -295,9 +425,10 @@ def animation_from_state_dir(output_file=None, play=False):
 if __name__ == '__main__':
     # animation_from_state_dir(cfg.default_animation_file)
     # StateImg.get()
-    debug = True
-    hq = False
+    debug = False
+    hq = True
     opengl = False
-    create_movie(ultimate_scene.UltimateScene, debug=debug, hq=hq, opengl=opengl, play=True)
+    create_movie(ultimate_scene.MyScene, debug=debug, hq=hq, opengl=opengl)
+    # create_movie(ultimate_scene.SingleTransition, debug=debug, hq=hq, opengl=opengl, play=True)
     # create_movie(LocalFrameOfReference)
 
