@@ -3,9 +3,6 @@ from manim import *
 import cfg
 
 
-def call(contextmanager):
-    with contextmanager:
-        pass
 
 
 class UltimateScene(Scene):
@@ -13,6 +10,10 @@ class UltimateScene(Scene):
         states = get_states_from_dir(play_path)
         field = Field(self, states[0])
         return field, states
+
+    def call(self, contextmanager):
+        with contextmanager:
+            pass
 
     @contextmanager
     def tex(self, tex):
@@ -30,10 +31,10 @@ class MyScene(UltimateScene):
         f, (s1, s2) = self.prepare('example_play')
         with self.tex('measure distances'), f.measure_distance('o2', 'o4'):
             self.wait(2)
-        with self.tex('measure angels'), f.measure_angle('o2', 'o3'):
+        with self.tex('measure angles'), f.measure_angle('o2', 'o3'):
             self.wait(2)
         with self.tex('highlight players:'):
-            [call(f.highlight(p)) for p in 'o1 o4 d2 d5'.split()]
+            [self.call(f.highlight(p)) for p in 'o1 o4 d2 d5'.split()]
         with self.tex('add marker shadow'), f.marker_shadow():
             self.wait(2)
         with self.tex("show player's field of view"), f.field_of_view('o1'):
