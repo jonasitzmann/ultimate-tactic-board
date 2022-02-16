@@ -11,6 +11,8 @@ temp_dir = 'temp/'
 plays_dir = 'plays/'
 current_play_dir = plays_dir + 'current/'
 default_animation_file = f'{temp_dir}animation.mp4'
+template_dir = 'templates/'
+template_play_file = template_dir + 'play_template.py'
 
 
 # dimensions

@@ -1,13 +1,15 @@
 from kivy.config import Config
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+import sys
 import os
 import cfg
-import shutil
+import importlib
 from glob import glob
 from run import state_from_photo
-from PIL import Image as PILImage
+from kivy.core.image import Image as CoreImage
+from kivy.uix.image import Image as kiImage
+from io import BytesIO
 import numpy as np
-from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.app import App
 from kivy.uix.behaviors import DragBehavior
@@ -17,8 +19,18 @@ from kivy.core.window import Window
 from cfg import field_height_m, field_width_m
 from state import State, Player
 import manim_animations
+from contextlib import contextmanager
 
-Window.size, player_width = (1500, 650), 40
+
+@contextmanager
+def cd(path):
+    old_path = os.getcwd()
+    os.chdir(path)
+    yield
+    os.chdir(old_path)
+
+
+Window.size, player_width = (1800, 800), 40
 kv = '''
 <PlayerWidget>:
     # Define the properties for the DragLabel
@@ -81,8 +93,8 @@ BoxLayout:
         id: field
         frame_number_label: frame_number_label  # todo: this hurts
         size_hint: None, None
-        height: 550
-        width: 1500
+        height: 670
+        width: 1800
     
 '''
 
@@ -90,35 +102,70 @@ BoxLayout:
 def get_play_dir():
     os.makedirs(cfg.plays_dir, exist_ok=True)
     dirs = [d.split('/')[-2] for d in glob(f'{cfg.plays_dir}/*/')]
-    max_dir = max(int(d) for d in dirs if d.isnumeric()) if dirs else 0
-    new_dir = f'{cfg.plays_dir}/{max_dir + 1}'
+    max_dir = max([int(d) for d in dirs if d.isnumeric()] or [0]) if dirs else 0
+    play_number = max_dir + 1
+    new_dir = f'{cfg.plays_dir}/{play_number}'
     os.makedirs(new_dir)
-    return new_dir
+    return new_dir, play_number
+
 
 
 class Field(RelativeLayout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.play_dir = get_play_dir()
+        self.play_dir, self.play_number = get_play_dir()
         self.size_hint = None, None
         self.state = State()
-        self.img_source = manim_animations.StateImg.get(self.state)
+        self.state_img = manim_animations.StateImg()
         self.size_hint = (None, None)
         self.frame_number = 1
         self.current_player_role = None
         self.current_player = None
         self.anglemode = False
+        self.play_name = None
         with self.canvas:
-            self.w, self.h = PILImage.open(self.img_source).size
-            self.image = Image(size_hint=(None, None), height=self.h, width=self.w, source=None)
+            self.image = kiImage(size_hint=(None, None))
         self.reset()
         self.edit_players_mode()
+    @property
+    def w(self):
+        return self.image.width
+
+    @property
+    def h(self):
+        return self.image.height
+
+    @property
+    def num_frames(self):
+        return len(glob(f'{self.play_dir}/*.yaml'))
+
+    def prepare_animation_script(self):
+        with open(cfg.template_play_file, 'r') as f:
+            template = f.read()
+        if self.play_name is None:
+            self.play_name = f'play{self.play_number}'
+        template = template.replace('TemplateScene', self.play_name.capitalize())
+        template = template.replace('play_name', self.play_name)
+        indentation = ' ' * 8
+        transitions = '\n'.join([f'{indentation}f.transition(s[{i}], run_time=4)' for i in range(1, self.num_frames)])
+        template = template.replace(f'{indentation}# state transitions', transitions)
+        save_path = f'{self.play_dir}/{self.play_name}.py'
+        with open(save_path, 'w') as f:
+            f.write(template)
+        return save_path
+
+    def execute_animation_script(self, script_path):
+        sys.path.append(self.play_dir)
+        try:
+            script = importlib.import_module(f'{self.play_name}')
+            with cd(self.play_dir):
+                script.render_scene()
+        except ImportError:
+            print('animation script not found')
 
     def render(self):
-        shutil.rmtree(cfg.current_play_dir, ignore_errors=True)
-        shutil.copytree(self.play_dir, cfg.current_play_dir)
-        manim_animations.animation_from_state_dir(f'{cfg.current_play_dir}/animation.mp4', play=True)
-        # App.get_running_app().stop()
+        save_path = self.prepare_animation_script()
+        self.execute_animation_script(save_path)
 
     def on_touch_down(self, touch):
         super().on_touch_down(touch)
@@ -173,8 +220,13 @@ class Field(RelativeLayout):
         return max([self.h, self.w]) / field_height_m
 
     def update_img(self):
-        self.image.source = manim_animations.StateImg.get(self.state)
-        self.image.reload()
+        img_data = self.state_img.get_img(self.state)
+        data = BytesIO()
+        img_data.save(data, format='png')
+        data.seek(0)  # yes you actually need this
+        im = CoreImage(BytesIO(data.read()), ext='png')
+        self.image.texture = im.texture
+        self.image.size = img_data.size
         return self.image
 
     def take_picture(self):

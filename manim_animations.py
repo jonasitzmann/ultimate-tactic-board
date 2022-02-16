@@ -1,5 +1,5 @@
-from contextlib import contextmanager
-import ultimate_scene
+from contextlib import contextmanager, ExitStack
+import scenes
 from functools import partial
 
 from cv_utils import round_to_odd
@@ -61,8 +61,8 @@ class MState(VGroup):
                 t = target.submob_dict.get(k, None)
                 if t is not None:
                     movements.append(MovePlayer(v, t, self.cs))
-        if self.disc is not None and new_state.disc is not None:
-            movements.append(MoveDisc(self.disc, new_state.disc, disc_delay))
+        # if self.disc is not None and new_state.disc is not None:
+        #     movements.append(MoveDisc(self.disc, new_state.disc, disc_delay))
         return movements
 
 
@@ -351,7 +351,7 @@ class MovePlayer(Animation):
         pos = self.cs.c2p(*((1 - k) * self.starting_mobject.position) + k * self.end_pose.position)
         self.mobject.move_to(pos)
 
-def create_movie(cls, debug=False, opengl=False, hq=False, output_file=None, play=False):
+def create_movie(cls, debug, opengl=False, hq=False, output_file=None):
     if debug:
         obj = cls()
         obj.render(True)
@@ -369,25 +369,25 @@ def create_movie(cls, debug=False, opengl=False, hq=False, output_file=None, pla
 
 
 class StateImg(Scene):
-    @staticmethod
-    def get(state=None):
-        if state is None:
-            state = State.load('temp/s_copy.yaml')
-        scene = StateImg(state)
-        scene.render()
-        img_path = scene.renderer.file_writer.image_file_path
-        print(img_path)
-        return str(img_path)
-
-
-    def __init__(self, state, *args, **kwargs):
-        self.state = state
-        config.pixel_width = 1500
+    def __init__(self, *args, **kwargs):
+        config.pixel_width = 1800
         fh = config.frame_width
         config.frame_height = fh * 37 / 100
         config.pixel_height = round_to_odd(config.pixel_width * 37 / 100) + 1
         config.frame_height = config.frame_width * 37 / 100
+        config.dry_run = True
+        self.state = None
+
         super().__init__(*args, **kwargs)
+
+    def get_img(self, state):
+        if state is None:
+            state = State.load('temp/s_copy.yaml')
+        self.state = state
+        self.clear()
+        self.render()
+        img = self.camera.get_image()
+        return img
 
     def construct(self):
         s1 = MState(self.state)
@@ -412,23 +412,26 @@ class DirAnimation(Scene):
         super().__init__(*args, **kwargs)
 
     def construct(self):
-        field = Field(state=self.states[0], scale_for_landscape=True)
-        self.add(field)
+        field = Field(self, state=self.states[0])
         for s1, s2 in zip(self.states, self.states[1:]):
-            field.load(s1)
-            field.transition(self, s2)
+            field.transition(s2)
 
 
-def animation_from_state_dir(output_file=None, play=False):
-    create_movie(DirAnimation, output_file=output_file, play=play)
+def animation_from_state_dir(output_file=None):
+    debug = False
+    create_movie(DirAnimation, debug, output_file=output_file)
+
+
+
+
 
 if __name__ == '__main__':
     # animation_from_state_dir(cfg.default_animation_file)
-    # StateImg.get()
+    StateImg.get()
     debug = False
     hq = True
     opengl = False
-    create_movie(ultimate_scene.MyScene, debug=debug, hq=hq, opengl=opengl)
+    # create_movie(scenes.MyScene, debug=debug, hq=hq, opengl=opengl)
     # create_movie(ultimate_scene.SingleTransition, debug=debug, hq=hq, opengl=opengl, play=True)
     # create_movie(LocalFrameOfReference)
 
