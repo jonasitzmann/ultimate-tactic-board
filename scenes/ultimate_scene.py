@@ -14,6 +14,8 @@ class UltimateScene(Scene):
         from manim_animations import Field, get_states_from_dir
         states = get_states_from_dir(play_path)
         field = Field(self, states[0])
+        self.logo = ImageMobject('../../' + cfg.logo_path).scale(0.25).to_corner(DR, buff=SMALL_BUFF).set_opacity(0.3)
+        self.add(self.logo)
         return field, states
 
     def call(self, *contextmanagers, t=0):

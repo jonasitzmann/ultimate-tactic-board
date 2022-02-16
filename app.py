@@ -147,7 +147,7 @@ class Field(RelativeLayout):
         template = template.replace('TemplateScene', self.play_name.capitalize())
         template = template.replace('play_name', self.play_name)
         indentation = ' ' * 8
-        transitions = '\n'.join([f'{indentation}f.transition(s[{i}], run_time=4)' for i in range(1, self.num_frames)])
+        transitions = '\n'.join([f'{indentation}f.transition(s[{i}], run_time=2)' for i in range(1, self.num_frames)])
         template = template.replace(f'{indentation}# state transitions', transitions)
         save_path = f'{self.play_dir}/{self.play_name}.py'
         with open(save_path, 'w') as f:

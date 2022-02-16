@@ -116,17 +116,17 @@ class Field(VGroup):
         self.add(self.rect)
         self.load(state)
         if scale_for_landscape:
-            self.scale((config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 5).rotate(90 * DEGREES)
+            self.scale((config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 5).rotate(-90 * DEGREES)
         global global_scene
         global_scene = scene
         if global_scene is not None:
             global_scene.add(self)
 
     def landscape_to_portrait(self):
-        global_scene.play(self.animate.scale(ls2pt).rotate(90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
+        global_scene.play(self.animate.scale(ls2pt).rotate(-90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
 
     def portrait_to_landscape(self):
-        global_scene.play(self.animate.scale(1 / ls2pt).rotate(-90 * DEGREES).move_to(ORIGIN))
+        global_scene.play(self.animate.scale(1 / ls2pt).rotate(90 * DEGREES).move_to(ORIGIN))
 
     def load(self, state: MState):
         self.remove(self.s)
@@ -213,6 +213,7 @@ class Field(VGroup):
 class FrameOfReference(Axes):
     def __init__(self, h, w, scale, *args, **kwargs):
         super().__init__(x_range=[0, w, w+1], y_range=[0, h, h+1], x_length=w*scale, y_length=h*scale, tips=False)
+        self.rotate(180 * DEGREES)
         self.c2p = self.coords_to_point
 
     def current_scale(self):
@@ -391,7 +392,7 @@ class StateImg(Scene):
 
     def construct(self):
         s1 = MState(self.state)
-        self.add(Field(state=s1, height=10, scale_for_landscape=False).scale(config.frame_width / 10).rotate(90 * DEGREES))
+        self.add(Field(state=s1, height=10, scale_for_landscape=False).scale(config.frame_width / 10).rotate(-90 * DEGREES))
 
 
 
