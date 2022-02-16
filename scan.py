@@ -299,6 +299,7 @@ def cluster_players_by_color(players: List[state.Player]):
     kmeans.cluster_centers_ = np.array(sorted(kmeans.cluster_centers_, key=lambda x: sum(x**2)))
     preds = kmeans.predict(np.array(colors))
     for pred, player in zip(preds, players):
+        player.role = 'o' if pred else 'd'
         (team_1 if pred else team_2).append(player)
     return team_1, team_2
 

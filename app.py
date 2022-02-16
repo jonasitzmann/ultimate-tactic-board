@@ -116,6 +116,7 @@ class Field(RelativeLayout):
         self.play_dir, self.play_number = get_play_dir()
         self.size_hint = None, None
         self.state = State()
+        self.previous_state = None
         self.state_img = manim_animations.StateImg()
         self.size_hint = (None, None)
         self.frame_number = 1
@@ -152,20 +153,16 @@ class Field(RelativeLayout):
         save_path = f'{self.play_dir}/{self.play_name}.py'
         with open(save_path, 'w') as f:
             f.write(template)
-        return save_path
 
-    def execute_animation_script(self, script_path):
+    def execute_animation_script(self):
         sys.path.append(self.play_dir)
-        try:
-            script = importlib.import_module(f'{self.play_name}')
-            with cd(self.play_dir):
-                script.render_scene()
-        except ImportError:
-            print('animation script not found')
+        script = importlib.import_module(f'{self.play_name}')
+        with cd(self.play_dir):
+            script.render_scene()
 
     def render(self):
-        save_path = self.prepare_animation_script()
-        self.execute_animation_script(save_path)
+        self.prepare_animation_script()
+        self.execute_animation_script()
 
     def on_touch_down(self, touch):
         super().on_touch_down(touch)
@@ -176,7 +173,7 @@ class Field(RelativeLayout):
         pos = self.pix2pos(touch.x, touch.y)
         plist = self.state.players_team_1 if self.current_player_role == 'o' else self.state.players_team_2
         label = str(max([int(p.label) for p in plist]) + 1) if plist else '1'
-        player = Player(pos, label=label)
+        player = Player(pos, label=label, role=self.current_player_role)
         self.current_player = PlayerWidget(player, self)
         plist.append(player)
         self.update_img()
@@ -203,12 +200,18 @@ class Field(RelativeLayout):
         for p in self.state.players_team_1 + self.state.players_team_2:
             self.add_widget(PlayerWidget(p, self))
 
+    def load_state(self, frame_number):
+        filename = f'{self.play_dir}/{frame_number}.yaml'
+        if os.path.exists(filename):
+            return State.load(filename)
+        return None
+
     def load_frame(self, frame_number):
         self.frame_number = max(frame_number, 1)
         self.frame_number_label.text = str(self.frame_number)
-        filename = f'{self.play_dir}/{self.frame_number}.yaml'
-        if os.path.exists(filename):
-            self.state = State.load(filename)
+        new_state = self.load_state(self.frame_number)
+        self.state = self.state if new_state is None else new_state
+        self.previous_state = self.load_state(self.frame_number - 1)
         self.reset()
 
     def reset(self):
@@ -255,6 +258,14 @@ class Field(RelativeLayout):
         pos[0] = field_width_m - pos[0]
         return pos
 
+    def get_previous_player(self, player):
+        if self.previous_state is None:
+            return None
+        plist = self.previous_state.players_team_1 if player.role == 'o' else self.previous_state.players_team_2
+        pdict = {p.label: p for p in plist}
+        return pdict.get(player.label, None)
+
+
 
 class PlayerWidget(DragBehavior, Label):
     def __init__(self, player, field, *args, **kwargs):
@@ -274,6 +285,12 @@ class PlayerWidget(DragBehavior, Label):
     def on_touch_up(self, touch):
         if self.collide_point(touch.x, touch.y):
             self.player_state.pos = self.pix2pos()
+            prev_player = self.parent.get_previous_player(self.player_state)
+            if prev_player is not None:
+                max_distance_no_turn = 3
+                pos = self.player_state.pos
+                if np.linalg.norm(pos - prev_player.pos) > max_distance_no_turn:
+                    self.player_state.angle = float(np.arctan2(*(pos - prev_player.pos)) * 180 / np.pi + 180)
             self.parent.update_img()
         elif self.angle_mode:
             pos1 = self.player_state.pos

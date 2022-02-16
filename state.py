@@ -1,72 +1,48 @@
 import numpy as np
-import os
 import attr_dict
 import cfg
 import yaml
 
 
 class Player:
-    def __init__(self, pos, angle=0, label='', color=None):
+    def __init__(self, pos, angle=0, label='', color=None, role=''):
         self.pos = np.array(pos)
         self.angle = int(angle)
         self.label = label
         self.color = np.array(color)
+        self.role = role
 
     @staticmethod
     def from_dict(d):
         d = attr_dict.AttrDict(d)
-        return Player(
-            pos=d.pos,
-            angle=d.orientation,
-            label=d.label,
-            color=d.color
-        )
+        return Player(pos=d.pos, angle=d.orientation, label=d.label, color=d.color, role=d.role)
 
     @property
     def manimpos(self):
         return np.array([cfg.field_width_m - self.pos[0], self.pos[1], 1])
 
-    def __add__(self, other):
-        assert(other.label == self.label)
-        return Player(self.pos + other.pos, self.angle + other.angle, self.label, self.color)
-
-    def __mul__(self, x):
-        return Player(self.pos * x, self.angle * x, self.label, self.color)
+    def __repr__(self):
+        return str(self.__dict__)
 
     def __lt__(self, other):
         return self.label < other.label
-
-    def __repr__(self):
-        return self.__dict__
-
-    __rmul__ = __mul__
 
 
 class State:
     """
     represents the state of play at an instant.
-    The functions __add__ and __mul__ allow for addition and scalar multiplication
-    which is required for interpolation.
-    # todo: should the interpolation really be done this way?
-    # todo: There are several possible ways to interpolate beween states.
     """
     def __init__(self, players_team_1=None, players_team_2=None, disc=None, areas=None):
-        self.players_team_1 = sorted(players_team_1 or [])
-        self.players_team_2 = sorted(players_team_2 or [])
+        # todo: why two lists of players?
+        # todo: find players, disc(s) and areas by id
+        # todo: at least players_team_1 and players_team_2 should be dicts rather than lists
+        self.players_team_1 = sorted([] if players_team_1 is None else players_team_1)
+        self.players_team_2 = sorted([] if players_team_2 is None else players_team_2)
         self.disc = np.array(disc)
-        self.areas = np.array(areas or [])
+        self.areas = [] if areas is None else areas
 
-    def __add__(self, other):
-        red_players = [s + o for s, o in zip(self.players_team_1, other.players_team_1)]
-        blue_players = [s + o for s, o in zip(self.players_team_2, other.players_team_2)]
-        disc = self.disc + other.disc
-        return State(players_team_1=red_players, players_team_2=blue_players, areas=other.areas, disc=disc)
-
-    def __mul__(self, x):
-        red_players = [s * x for s in self.players_team_1]
-        blue_players = [s * x for s in self.players_team_2]
-        disc = self.disc * x
-        return State(players_team_1=red_players, players_team_2=blue_players, areas=self.areas, disc=disc)
+    def __repr__(self):
+        return str(self.__dict__)
 
     @staticmethod
     def from_dict(d):
@@ -97,7 +73,7 @@ def state_representer(dumper: yaml.Dumper, state: State):
         players_team_1=state.players_team_1,
         players_team_2=state.players_team_2,
         disc=state.disc.tolist(),
-        areas=[a.tolist() for a in state.areas]
+        areas=state.areas
     ))
 
 
@@ -106,7 +82,8 @@ def players_representer(dumper: yaml.Dumper, player: Player):
         pos=player.pos.tolist(),
         orientation=player.angle,
         color=player.color.tolist(),
-        label=player.label
+        label=player.label,
+        role=player.role,
     ))
 
 yaml.add_representer(State, state_representer)

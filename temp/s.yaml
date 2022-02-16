@@ -1,60 +1,9 @@
-areas: []
-disc: [18.3, 28.2]
+areas:
+- [10, 11, 12, 10]
+disc: [8, 9]
 players_team_1:
-- color: [56, 64, 104]
-  label: '1'
-  orientation: 179
-  pos: [28.75, 22.5]
-- color: [60, 70, 109]
-  label: '2'
-  orientation: 169
-  pos: [19.55, 27.1]
-- color: [77, 85, 127]
-  label: '3'
-  orientation: 173
-  pos: [9.0, 20.25]
-- color: [44, 51, 101]
+- color: [5, 6, 7]
   label: '4'
-  orientation: 168
-  pos: [35.05, 45.3]
-- color: [59, 67, 114]
-  label: '5'
-  orientation: 155
-  pos: [23.4, 40.95]
-- color: [65, 75, 115]
-  label: '6'
-  orientation: 168
-  pos: [13.6, 39.45]
-- color: [67, 74, 115]
-  label: '7'
-  orientation: 8
-  pos: [6.3, 48.15]
-players_team_2:
-- color: [65, 62, 56]
-  label: '1'
-  orientation: 173
-  pos: [29.7, 27.2]
-- color: [66, 65, 61]
-  label: '2'
-  orientation: 49
-  pos: [21.0, 29.1]
-- color: [75, 77, 73]
-  label: '3'
-  orientation: 317
-  pos: [11.8, 23.25]
-- color: [52, 53, 49]
-  label: '4'
-  orientation: 12
-  pos: [30.45, 57.9]
-- color: [61, 61, 58]
-  label: '5'
-  orientation: 320
-  pos: [20.25, 43.05]
-- color: [71, 74, 75]
-  label: '6'
-  orientation: 333
-  pos: [10.55, 41.6]
-- color: [74, 76, 75]
-  label: '7'
-  orientation: 164
-  pos: [1.2, 40.95]
+  orientation: 3
+  pos: [1, 2]
+players_team_2: []
