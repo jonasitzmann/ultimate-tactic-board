@@ -1,7 +1,6 @@
 import cv2
 import cfg
 import numpy as np
-from masked_adaptive_threshold import masked_adaptive_threshold
 show_count = 0
 
 

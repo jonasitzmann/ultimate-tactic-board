@@ -2,6 +2,7 @@ import numpy as np
 import attr_dict
 import cfg
 import yaml
+from itertools import chain
 
 
 class Player:
@@ -21,6 +22,10 @@ class Player:
     def manimpos(self):
         return np.array([cfg.field_width_m - self.pos[0], self.pos[1], 1])
 
+    @property
+    def manimangle(self):
+        return np.deg2rad(self.angle - 180)
+
     def __repr__(self):
         return str(self.__dict__)
 
@@ -32,24 +37,35 @@ class State:
     """
     represents the state of play at an instant.
     """
-    def __init__(self, players_team_1=None, players_team_2=None, disc=None, areas=None):
-        # todo: why two lists of players?
-        # todo: find players, disc(s) and areas by id
-        # todo: at least players_team_1 and players_team_2 should be dicts rather than lists
-        self.players_team_1 = sorted([] if players_team_1 is None else players_team_1)
-        self.players_team_2 = sorted([] if players_team_2 is None else players_team_2)
-        self.disc = np.array(disc)
+    def __init__(self, players=None, disc=None, areas=None):
+        self.players = players if players is not None else {'o': {}, 'd': {}}
+        self.disc = [] if disc is None else disc
         self.areas = [] if areas is None else areas
 
     def __repr__(self):
         return str(self.__dict__)
 
+    @property
+    def playerlist(self):
+        return chain(*[pdict.values() for pdict in self.players.values()])
+
+    def get_player(self, player):
+        return self.players.get(player.role, {}).get(player.label, None)
+
+    def set_player(self, player):
+        if player.role not in self.players:
+            self.players[player.role] = {}
+        self.players[player.role][player.label] = player
+
     @staticmethod
     def from_dict(d):
+        players = d['players']
+        for role, player_dict in players.items():
+            for label, player in player_dict.items():
+                player_dict[label] = Player.from_dict(player)
         d = attr_dict.AttrDict(d)
         return State(
-            players_team_1=[Player.from_dict(p) for p in d.players_team_1],
-            players_team_2=[Player.from_dict(p) for p in d.players_team_2],
+            players=players,
             disc=np.array(d.disc),
             areas=np.array(d.areas)
         )
@@ -70,9 +86,8 @@ class State:
 
 def state_representer(dumper: yaml.Dumper, state: State):
     return dumper.represent_dict(dict(
-        players_team_1=state.players_team_1,
-        players_team_2=state.players_team_2,
-        disc=state.disc.tolist(),
+        players=state.players,
+        disc=np.array(state.disc).reshape(-1).tolist(),
         areas=state.areas
     ))
 

@@ -5,7 +5,6 @@ import numpy as np
 from numpy import floor, ceil
 from sklearn.cluster import KMeans
 import digit_classification
-import drawer
 import cv_utils
 import state
 import cfg
@@ -75,13 +74,13 @@ def scan(img_path: str, show_digits=cfg.show_digits, show_circles=cfg.show_circl
     for c in player_contours:
         players.append(identify_player(img.copy(), c, cfg.radius_pixels, show_digits, labeling_mode))
         annotate_player(annotated, players[-1], c)
-    team_1, team_2 = cluster_players_by_color(players)
+    players = cluster_players_by_color(players)
     disc_pos = np.array(locate_disc(img, black_emphasized, players))
     areas = np.array(detect_areas(black_emphasized, circles, field, disc_pos)) / cfg.resize_factor
     for i, img_step in enumerate([gray, annotated] if show_circles else []):
         cv_utils.display_img(img_step, wait=False, window_name=str(i), pos=i)
 
-    return state.State(players_team_1=team_1, players_team_2=team_2, areas=areas, disc=disc_pos / cfg.resize_factor)
+    return state.State(players=players, areas=areas, disc=disc_pos / cfg.resize_factor)
 
 
 def resize_img(img, show_resized=cfg.show_input):
@@ -292,16 +291,16 @@ def cluster_players_by_color(players: List[state.Player]):
         print('only one player detected')
         print(players[0].angle)
         return players, []
-    team_1, team_2 = [], []
     kmeans = KMeans(n_clusters=2)
     colors = np.array([p.color for p in players])
     kmeans.fit(np.array(colors))
     kmeans.cluster_centers_ = np.array(sorted(kmeans.cluster_centers_, key=lambda x: sum(x**2)))
     preds = kmeans.predict(np.array(colors))
+    players_dict = {'o': {}, 'd': {}}
     for pred, player in zip(preds, players):
         player.role = 'o' if pred else 'd'
-        (team_1 if pred else team_2).append(player)
-    return team_1, team_2
+        players_dict[player.role][player.label] = player
+    return players_dict
 
 
 def detect_field(img: np.ndarray, show_edges=cfg.show_edges) -> np.ndarray:

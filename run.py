@@ -1,7 +1,6 @@
 import os
 import shutil
 import scan
-import drawer
 import cfg
 import ip_camera
 from glob import glob

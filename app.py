@@ -114,6 +114,7 @@ class Field(RelativeLayout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.play_dir, self.play_number = get_play_dir()
+        self.annotations = []
         self.size_hint = None, None
         self.state = State()
         self.previous_state = None
@@ -171,11 +172,10 @@ class Field(RelativeLayout):
         if not self.collide_point(*touch.pos):
             return
         pos = self.pix2pos(touch.x, touch.y)
-        plist = self.state.players_team_1 if self.current_player_role == 'o' else self.state.players_team_2
-        label = str(max([int(p.label) for p in plist]) + 1) if plist else '1'
+        label = str(len(self.state.players[self.current_player_role]) + 1)
         player = Player(pos, label=label, role=self.current_player_role)
         self.current_player = PlayerWidget(player, self)
-        plist.append(player)
+        self.state.set_player(player)
         self.update_img()
 
     def on_touch_up(self, touch):
@@ -197,8 +197,9 @@ class Field(RelativeLayout):
         self.edit_players_mode()
 
     def add_players(self):
-        for p in self.state.players_team_1 + self.state.players_team_2:
-            self.add_widget(PlayerWidget(p, self))
+        for pdict in self.state.players.values():
+            for p in pdict.values():
+                self.add_widget(PlayerWidget(p, self))
 
     def load_state(self, frame_number):
         filename = f'{self.play_dir}/{frame_number}.yaml'
@@ -261,9 +262,7 @@ class Field(RelativeLayout):
     def get_previous_player(self, player):
         if self.previous_state is None:
             return None
-        plist = self.previous_state.players_team_1 if player.role == 'o' else self.previous_state.players_team_2
-        pdict = {p.label: p for p in plist}
-        return pdict.get(player.label, None)
+        return self.previous_state.get_player(player)
 
 
 
