@@ -172,6 +172,9 @@ class Field(RelativeLayout):
     def on_touch_up(self, touch):
         self.mode.on_touch_up(touch)
 
+    def on_touch_move(self, touch):
+        self.mode.on_touch_move(touch)
+
     def save_state(self):
         self.state.save(f'{self.play_dir}/{self.frame_number}.yaml')
         self.prepare_animation_script()

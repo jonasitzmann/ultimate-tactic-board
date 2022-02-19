@@ -55,27 +55,29 @@ class AddPlayer(Command):
         self.state.remove_player(self.player_widget.player_state)
 
 
-class AnnotationCommand(Command, ABC):
-    def __init__(self, field, annotation):
+class AnnotationsCommand(Command, ABC):
+    def __init__(self, field, annotations):
         super().__init__(field)
-        self.annotation = annotation
+        self.annotations = annotations
 
     def execute(self):
-        self.field.configuration.annotations.append(self.annotation)
+        for annotation in self.annotations:
+            self.field.configuration.annotations.append(annotation)
 
     def undo(self):
-        self.field.configuration.annotations.remove(self.annotation)
+        for annotation in self.annotations:
+            self.field.configuration.annotations.remove(annotation)
 
 
-class HighlightPlayer(AnnotationCommand):
-    def __init__(self, field, annotation):
+class HighlightPlayers(AnnotationsCommand):
+    def __init__(self, field, *players):
         from manim_animations import Field as MField
-        self.annotation = partial(MField.highlight, player_name=self.player.name)
-        super().__init__(field, annotation)
+        annotations = [partial(MField.highlight, player_name=player.name) for player in players]
+        super().__init__(field, annotations)
 
 
-class FieldOfView(AnnotationCommand):
-    def __init__(self, field, player):
+class FieldOfView(AnnotationsCommand):
+    def __init__(self, field, *players):
         from manim_animations import Field as MField
-        annotation = partial(MField.field_of_view, player_name=player.name)
-        super().__init__(field, annotation)
+        annotations = [partial(MField.field_of_view, player_name=player.name) for player in players]
+        super().__init__(field, annotations)

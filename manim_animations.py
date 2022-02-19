@@ -406,8 +406,10 @@ class MovePlayer(Animation):
         return self.interpolation(k, k)
 
     def run_interpolation(self, alpha):
+        # todo: first turn towards the target then turn towards the end state
         k_pos = self.rate_func(alpha)
         k_rot = self.rate_func_compressed(alpha)
+        
         return self.interpolation(k_rot, k_pos)
 
 

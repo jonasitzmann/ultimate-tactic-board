@@ -3,6 +3,14 @@
     on_press: self.field.set_mode(self.text)
 
 
+<SelectionRect>
+    size_hint: None, None
+    canvas:
+        Color:
+            rgba: 1, 0, 0, 0.1
+        Rectangle:
+            pos: self.pos
+            size: self.size
 
 <PlayerWidget>:
     # Define the properties for the DragLabel
