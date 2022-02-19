@@ -1,5 +1,8 @@
 from kivy.config import Config
+from dataclasses import dataclass
+import mode
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+from collections import deque
 import sys
 import os
 import cfg
@@ -10,17 +13,16 @@ from kivy.core.image import Image as CoreImage
 from kivy.uix.image import Image as kiImage
 from io import BytesIO
 import numpy as np
-from kivy.uix.label import Label
 from kivy.app import App
-from kivy.uix.behaviors import DragBehavior
 from kivy.lang import Builder
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.core.window import Window
 from cfg import field_height_m, field_width_m
-from state import State, Player
+from state import State
 import manim_animations
 from contextlib import contextmanager
 
+Window.size, disc_width = (1800, 800), 40
 
 @contextmanager
 def cd(path):
@@ -29,74 +31,6 @@ def cd(path):
     yield
     os.chdir(old_path)
 
-
-Window.size, player_width = (1800, 800), 40
-kv = '''
-<PlayerWidget>:
-    # Define the properties for the DragLabel
-    drag_rectangle: self.x, self.y, self.width, self.height
-    drag_timeout: 10000000
-    drag_distance: 0
-    size_hint: (None, None)
-    canvas.before:
-        Color:
-            rgba: 1, 0, 0, 0
-        Ellipse:
-            pos: self.pos
-            size: self.size 
-    Label:
-        text: root.label
-        pos: root.pos
-        size: root.size
-BoxLayout:
-    orientation: 'vertical'
-    BoxLayout:
-        height: 100
-        size_hint: 1, None
-        Button:
-            text: 'Take Picture'
-            on_press: field.take_picture()
-        Label:
-            text: 'edit pos'
-        CheckBox:
-            group: 'ckbx'
-            on_active: field.edit_players_mode()
-        GridLayout:
-            cols: 2
-            rows: 2
-            Label:
-                text: 'add offense'
-            CheckBox:
-                group: 'ckbx'
-                on_active: field.add_offenders_mode()
-            Label:
-                text: 'add defense'
-            CheckBox:
-                group: 'ckbx'
-                on_active: field.add_defenders_mode()
-        Button:
-            text: 'Save'
-            on_press: field.save_state()
-        Button:
-            text: 'Previous Frame'
-            on_press: field.load_frame(field.frame_number - 1)
-        Label:
-            id: frame_number_label
-            text: '1'
-        Button:
-            text: 'Next Frame'
-            on_press: field.load_frame(field.frame_number + 1)
-        Button:
-            text: 'render'
-            on_press: field.render()
-    Field:
-        id: field
-        frame_number_label: frame_number_label  # todo: this hurts
-        size_hint: None, None
-        height: 670
-        width: 1800
-    
-'''
 
 
 def get_play_dir():
@@ -109,14 +43,20 @@ def get_play_dir():
     return new_dir, play_number
 
 
+@dataclass
+class Configuration:
+    state = State()
+    frame_number = 1
+    annotations = []
+
+
 
 class Field(RelativeLayout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.play_dir, self.play_number = get_play_dir()
         self.annotations = []
-        self.size_hint = None, None
-        self.state = State()
+        self.configuration = Configuration()
         self.previous_state = None
         self.state_img = manim_animations.StateImg()
         self.size_hint = (None, None)
@@ -125,10 +65,23 @@ class Field(RelativeLayout):
         self.current_player = None
         self.anglemode = False
         self.play_name = None
+        hist_size = 50
+        self.undo_cmds = deque(maxlen=hist_size)
+        self.redo_cmds = deque(maxlen=hist_size)
         with self.canvas:
             self.image = kiImage(size_hint=(None, None))
-        self.reset()
-        self.edit_players_mode()
+        self.add_widget(self.update_img())
+        self.mode_text = 'view'
+        self.set_mode()
+
+    @property
+    def state(self):
+        return self.configuration.state
+
+    @state.setter
+    def state(self, value):
+        self.configuration.state = value
+
     @property
     def w(self):
         return self.image.width
@@ -140,6 +93,54 @@ class Field(RelativeLayout):
     @property
     def num_frames(self):
         return len(glob(f'{self.play_dir}/*.yaml'))
+
+    def execute_cmd(self, cmd):
+        self.undo_cmds.append(cmd)
+        self.redo_cmds.clear()
+        self.do_and_reload(cmd.execute)
+
+    def undo(self):
+        if self.undo_cmds:
+            cmd = self.undo_cmds.pop()
+            self.redo_cmds.append(cmd)
+            self.do_and_reload(cmd.undo)
+
+    def redo(self):
+        if self.redo_cmds:
+            cmd = self.redo_cmds.pop()
+            self.undo_cmds.append(cmd)
+            self.do_and_reload(cmd.execute)
+
+    def do_and_reload(self, func):
+        func()
+        self.update_img()
+
+
+    def execute_text_command(self, command):
+        command = 'self.state.' + command
+        try:
+            exec(command)
+            self.update_img()
+            self.set_mode()
+        except Exception as e:
+            print(e)
+        finally:
+            self.text_input.text = ''
+
+    def set_mode(self, mode_text=None):
+        if not mode_text:
+            mode_text = self.mode_text
+        self.mode_text = mode_text
+        if mode_text == 'add o':
+            self.mode = mode.AddPlayerMode(self, 'o')
+        elif mode_text == 'add d':
+            self.mode = mode.AddPlayerMode(self, 'd')
+        elif mode_text == 'move':
+            self.mode = mode.EditPoseMode(self)
+        elif mode_text == 'select':
+            self.mode = mode.SelectMode(self)
+        elif mode_text == 'view':
+            self.mode = mode.ViewMode(self)
 
     def prepare_animation_script(self):
         with open(cfg.template_play_file, 'r') as f:
@@ -162,44 +163,19 @@ class Field(RelativeLayout):
             script.render_scene()
 
     def render(self):
-        self.prepare_animation_script()
         self.execute_animation_script()
 
     def on_touch_down(self, touch):
-        super().on_touch_down(touch)
-        if self.current_player_role is None:
-            return
-        if not self.collide_point(*touch.pos):
-            return
-        pos = self.pix2pos(touch.x, touch.y)
-        label = str(len(self.state.players[self.current_player_role]) + 1)
-        player = Player(pos, label=label, role=self.current_player_role)
-        self.current_player = PlayerWidget(player, self)
-        self.state.set_player(player)
-        self.update_img()
+        if self.collide_point(*touch.pos):
+            self.mode.on_touch_down(touch)
 
     def on_touch_up(self, touch):
-        super().on_touch_up(touch)
-        if self.current_player_role is None:
-            return
-        if self.current_player is None:
-            return
-        if self.current_player.collide_point(*touch.pos):
-            return
-        pos1 = self.current_player.player_state.pos
-        pos2 = self.pix2pos(touch.x, touch.y)
-        self.current_player.player_state.angle = int(np.arctan2(*(pos2 - pos1)) * 180 / np.pi + 180)
-        self.update_img()
+        self.mode.on_touch_up(touch)
 
     def save_state(self):
         self.state.save(f'{self.play_dir}/{self.frame_number}.yaml')
+        self.prepare_animation_script()
         self.load_frame(self.frame_number + 1)
-        self.edit_players_mode()
-
-    def add_players(self):
-        for pdict in self.state.players.values():
-            for p in pdict.values():
-                self.add_widget(PlayerWidget(p, self))
 
     def load_state(self, frame_number):
         filename = f'{self.play_dir}/{frame_number}.yaml'
@@ -213,7 +189,7 @@ class Field(RelativeLayout):
         new_state = self.load_state(self.frame_number)
         self.state = self.state if new_state is None else new_state
         self.previous_state = self.load_state(self.frame_number - 1)
-        self.reset()
+        self.set_mode()
 
     def reset(self):
         self.clear_widgets()
@@ -224,7 +200,7 @@ class Field(RelativeLayout):
         return max([self.h, self.w]) / field_height_m
 
     def update_img(self):
-        img_data = self.state_img.get_img(self.state)
+        img_data = self.state_img.get_img(self.state, self.configuration.annotations)
         data = BytesIO()
         img_data.save(data, format='png')
         data.seek(0)  # yes you actually need this
@@ -236,14 +212,8 @@ class Field(RelativeLayout):
     def take_picture(self):
         try:
             self.state = state_from_photo()
-            self.edit_players_mode()
         except Exception as e:
             print(f'error\n{e}')
-
-    def edit_players_mode(self):
-        self.current_player_role = None
-        self.reset()
-        self.add_players()
 
     def add_offenders_mode(self):
         self.reset()
@@ -265,57 +235,10 @@ class Field(RelativeLayout):
         return self.previous_state.get_player(player)
 
 
-
-class PlayerWidget(DragBehavior, Label):
-    def __init__(self, player, field, *args, **kwargs):
-        self.field, self.player_state = field, player
-        self.label = player.label
-        self.angle_mode = False
-        pos = self.pos2pix(player.pos)
-        super().__init__(text=self.label, pos=pos, *args, **kwargs)
-        self.width, self.height = player_width, player_width
-
-    def on_touch_down(self, touch):
-        if touch.button != 'right':
-            return super().on_touch_down(touch)
-        if self.collide_point(*touch.pos):
-            self.angle_mode = True
-
-    def on_touch_up(self, touch):
-        if self.collide_point(touch.x, touch.y):
-            self.player_state.pos = self.pix2pos()
-            prev_player = self.parent.get_previous_player(self.player_state)
-            if prev_player is not None:
-                max_distance_no_turn = 3
-                pos = self.player_state.pos
-                if np.linalg.norm(pos - prev_player.pos) > max_distance_no_turn:
-                    self.player_state.angle = float(np.arctan2(*(pos - prev_player.pos)) * 180 / np.pi + 180)
-            self.parent.update_img()
-        elif self.angle_mode:
-            pos1 = self.player_state.pos
-            pos2 = self.field.pix2pos(touch.x, touch.y)
-            self.player_state.angle = int(np.arctan2(*(pos2 - pos1)) * 180 / np.pi + 180)
-            self.parent.update_img()
-            self.angle_mode = False
-        self.angle_mode = False
-        if self.collide_point(touch.x, touch.y):
-            self.player_state.pos = self.pix2pos()
-            self.parent.update_img()
-        return super().on_touch_up(touch)
-
-    def pix2pos(self):
-        offset = player_width / 2
-        return self.field.pix2pos(self.x, self.y, offset)
-
-    def pos2pix(self, pos):
-        x, y = pos
-        x = field_width_m - x
-        x, y = field_height_m - y, x
-        return (np.array([x, y]) * self.field.scale - (player_width / 2)).astype(int).tolist()
-
-
 class UltimateTacticsBoardApp(App):
     def build(self):
+        with open('kv_app.kv', 'r') as f:
+            kv = f.read()
         return Builder.load_string(kv)
 
 

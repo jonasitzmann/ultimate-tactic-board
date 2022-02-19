@@ -111,14 +111,14 @@ class Field(VGroup):
     def marker_shadow(self):
         return self.contextmanager_animation(self.get_marking_shadow)
 
-    def field_of_view(self, player_name):
+    def field_of_view(self, player_name, *args, **kwargs):
         """
         :param scene: the scene to show the animations
         :param player_name: e.g. f'o1' for offense['1'] or d6 for defense['6']
         :return: contextmanager inside which the field of view is shown
         """
         player = self.get_player(player_name)
-        return self.contextmanager_animation(player.get_field_of_view, field=self)
+        return self.contextmanager_animation(player.get_field_of_view, field=self, *args, **kwargs)
 
     def measure_distance(self, p1, p2, distance=None, *args, **kwargs):
         p1, p2 = self.get_player(p1), self.get_player(p2)
@@ -292,7 +292,9 @@ class MPlayer(VGroup):
             stroke_width=0,
             fill_opacity=hightlight_opacity,
         )
-        c.add_updater(lambda c: c.move_to(self.get_center()))
+        moveto = lambda c: c.move_to(self.get_center())
+        moveto(c)
+        c.add_updater(moveto)
         return c
 
     def get_field_of_view(self, field: Field):
@@ -340,6 +342,15 @@ def delayed(func, delay):
     return wrapper
 
 
+def compressed_front(func, neg_delay):
+    def wrapper(alpha):
+        scale = 1 / (1 - neg_delay)
+        scaled_alpha = min([alpha * scale, 1])
+        return func(scaled_alpha)
+    return wrapper
+
+
+
 class MoveDisc(Animation):
     # todo: calc delay and inflection based on the range and avg. speed of the throw
     # todo: eg: short throws move linearly while long throws slow down significantly
@@ -372,34 +383,35 @@ class MovePlayer(Animation):
         self.total_rotation = get_minimum_rotation(self.end_state.angle - self.start_state.angle)
         self.total_rotation_rad = self.total_rotation * DEGREES
         avg_speed_kmh = np.linalg.norm(self.start_state.pos - self.end_state.pos) / real_time * 3.6
-        max_speed_floating = 50
-        self.last_k = 0
+        max_speed_floating = 7
+        self.last_k_rot = 0
         self.total_shift = self.cs.c2p(*self.end_state.manimpos) - self.cs.c2p(*self.start_state.manimpos)
+        self.rate_func_compressed = compressed_front(self.rate_func, 0.7)
         if avg_speed_kmh > max_speed_floating:
-            self.interpolate_mobject = self.beam_interpolation  # todo: how to interpolate fast players?
+            self.interpolate_mobject = self.run_interpolation
         else:
-            self.interpolate_mobject = self.float_interpolation_fast
+            self.interpolate_mobject = self.float_interpolation
 
-    # def beam_interpolation(self, alpha):
-    #     self.mobject.become(self.starting_mobject if self.rate_func(alpha) < 0.5 else self.end_pose)
-
-    def float_interpolation(self, alpha: float) -> None:
-        self.mobject.become(self.starting_mobject)
-        k = self.rate_func(alpha)
-        self.mobject.player.angle = self.start_state.angle + k * self.total_rotation
-        self.mobject.player.pos = (1 - k) * self.start_state.pos + k * self.end_state.pos
-        self.mobject.become(MPlayer(self.mobject.player, self.cs))
-
-    def float_interpolation_fast(self, alpha):
-        k = self.rate_func(alpha)
-        delta_k = k - self.last_k
-        d_pos = self.total_shift * delta_k
-        d_angle = self.total_rotation_rad * delta_k
-        self.mobject.player.angle = self.start_state.angle + k * self.total_rotation
-        self.mobject.player.pos = (1 - k) * self.start_state.pos + k * self.end_state.pos
+    def interpolation(self, k_rot, k_pos):
+        delta_k_rot = k_rot - self.last_k_rot
+        d_angle = self.total_rotation_rad * delta_k_rot
+        self.mobject.player.angle = self.start_state.angle + k_rot * self.total_rotation
+        self.mobject.player.pos = (1 - k_pos) * self.start_state.pos + k_pos * self.end_state.pos
         self.mobject.move_to(self.mobject.cs.c2p(*self.mobject.player.manimpos))
         self.mobject.rotate(d_angle)
-        self.last_k = k
+        self.last_k_rot = k_rot
+
+    def float_interpolation(self, alpha):
+        k = self.rate_func(alpha)
+        return self.interpolation(k, k)
+
+    def run_interpolation(self, alpha):
+        k_pos = self.rate_func(alpha)
+        k_rot = self.rate_func_compressed(alpha)
+        return self.interpolation(k_rot, k_pos)
+
+
+
 
 
 def create_movie(cls, debug, opengl=False, hq=False, output_file=None, dry_run=False):
@@ -428,19 +440,24 @@ class StateImg(Scene):
         config.pixel_height = round_to_odd(config.pixel_width * 37 / 100) + 1
         config.frame_height = config.frame_width * 37 / 100
         config.dry_run = True
+        self.annotations = []
         self.state = None
 
         super().__init__(*args, **kwargs)
 
-    def get_img(self, state):
+    def get_img(self, state, annotations=None):
         self.state = State.load('temp/s_copy.yaml') if state is None else state
+        if annotations is not None:
+            self.annotations = annotations
         self.clear()
         self.render()
         img = self.camera.get_image()
         return img
 
     def construct(self):
-        self.add(Field(state=self.state, height=10, scale_for_landscape=False).scale(config.frame_width / 10).rotate(-90 * DEGREES))
+        field = Field(self, state=self.state, height=10, scale_for_landscape=False).scale(config.frame_width / 10).rotate(-90 * DEGREES)
+        for annotation in self.annotations:
+            annotation(field, fade=False).__enter__()
 
 
 

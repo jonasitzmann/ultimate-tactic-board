@@ -3,6 +3,7 @@ import attr_dict
 import cfg
 import yaml
 from itertools import chain
+from contextlib import contextmanager
 
 
 class Player:
@@ -12,6 +13,10 @@ class Player:
         self.label = label
         self.color = np.array(color)
         self.role = role
+
+    @property
+    def name(self):
+        return f'{self.role}{self.label}'
 
     @staticmethod
     def from_dict(d):
@@ -45,17 +50,68 @@ class State:
     def __repr__(self):
         return str(self.__dict__)
 
+    def add_player(self, role, pos, angle=0):
+        label = str(len(self.players[role]) + 1)
+        player = Player(pos, angle, label, role=role)
+        self.set_player(player)
+        return player
+
+    def remove_player(self, player):
+        if player.role not in self.players:
+            return
+        self.players[player.role].pop(player.label)
+
     @property
     def playerlist(self):
         return chain(*[pdict.values() for pdict in self.players.values()])
 
     def get_player(self, player):
-        return self.players.get(player.role, {}).get(player.label, None)
+        if player is not None:
+            return self.players.get(player.role, {}).get(player.label, None)
 
     def set_player(self, player):
         if player.role not in self.players:
             self.players[player.role] = {}
         self.players[player.role][player.label] = player
+
+    def find_player(self, name):
+        role, label = name[0], name[1:]
+        return self.players.get(role, {}).get(label, None)
+
+    def find_players(self, names):
+        return [self.find_player(name) for name in names.split(' ')]
+
+    def align_x(self, players, to='mean'):
+        players = self.find_players(players)
+        if to == 'mean':
+            x = np.mean([p.pos[0] for p in players])
+        elif to == 'min':
+            x = min([p.pos[0] for p in players])
+        elif to == 'max':
+            x = max([p.pos[0] for p in players])
+        else:
+            player = self.find_player(to)
+            if player is None:
+                print(f'player {to} not found')
+                return
+            if player not in players:
+                players.append(player)
+            x = player.pos[0]
+        for p in players:
+            p.pos[0] = x
+
+    @contextmanager
+    def transpose_poses(self, players):
+        players = self.find_players(players)
+        for p in players:
+            p.pos = p.pos[::-1]
+        yield
+        for p in players:
+            p.pos = p.pos[::-1]
+
+    def align_y(self, players, to='mean'):
+        with self.transpose_poses(players):
+            self.align_x(players, to)
 
     @staticmethod
     def from_dict(d):
@@ -66,8 +122,8 @@ class State:
         d = attr_dict.AttrDict(d)
         return State(
             players=players,
-            disc=np.array(d.disc),
-            areas=np.array(d.areas)
+            disc=d.disc,
+            areas=d.areas
         )
 
     def save(self, path):

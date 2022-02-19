@@ -11,9 +11,9 @@ class MyScene(UltimateScene):
         # with self.tex('highlight players:'):
         #     [self.call(f.highlight(p)) for p in 'o1 o4 d2 d5'.split()]
         # self.call(self.tex('add marker shadow'), f.marker_shadow(), t=2)
-        with f.measure_distance('o4', 'o7', fade=False), f.measure_angle('o2', 'o3', fade=False):
-            f.transition(s[1])
-            self.wait(2)
+        # with f.measure_distance('o4', 'o7', fade=False), f.measure_angle('o2', 'o3', fade=False):
+        f.transition(s[1])
+        self.wait(2)
 
 
 

@@ -1,0 +1,83 @@
+<ModeButton@ToggleButton>:
+    group: 'mode'
+    on_press: self.field.set_mode(self.text)
+
+
+
+<PlayerWidget>:
+    # Define the properties for the DragLabel
+    drag_rectangle: self.x, self.y, self.width, self.height
+    drag_timeout: 10000000
+    drag_distance: 0
+    size_hint: (None, None)
+    canvas.before:
+        Color:
+            rgba: 1, 0, 0, 0
+        Ellipse:
+            pos: self.pos
+            size: self.size
+    Label:
+        text: root.label
+        pos: root.pos
+        size: root.size
+BoxLayout:
+    orientation: 'vertical'
+    BoxLayout:
+        height: 100
+        size_hint: 1, None
+        Button:
+            text: 'undo'
+            on_press: field.undo()
+        Button:
+            text: 'redo'
+            on_press: field.redo()
+        TextInput:
+            id: text_input
+            hint_text: 'enter command'
+            multiline: False
+            on_text_validate: field.execute_text_command(self.text)
+            minimum_width: 300
+            width: 300
+            size_hint: None, None
+        Button:
+            text: 'Take Picture'
+            on_press: field.take_picture()
+        GridLayout:
+            cols: 2
+            rows: 2
+            minimum_width: 300
+            ModeButton:
+                text: 'add o'
+                field: field
+            ModeButton:
+                text: 'add d'
+                field: field
+            ModeButton:
+                text: 'move'
+                field: field
+
+            ModeButton:
+                text: 'select'
+                field: field
+        Button:
+            text: 'Save'
+            on_press: field.save_state()
+        Button:
+            text: 'Previous Frame'
+            on_press: field.load_frame(field.frame_number - 1)
+        Label:
+            id: frame_number_label
+            text: '1'
+        Button:
+            text: 'Next Frame'
+            on_press: field.load_frame(field.frame_number + 1)
+        Button:
+            text: 'render'
+            on_press: field.render()
+    Field:
+        id: field
+        frame_number_label: frame_number_label
+        text_input: text_input
+        size_hint: None, None
+        height: 670
+        width: 1800
