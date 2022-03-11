@@ -1,7 +1,47 @@
+<SelectionMenu@BoxLayout>:
+    Button:
+        text: 'align x'
+        on_press: root.mode.align_x()
+    Button:
+        text: 'align y'
+        on_press: root.mode.align_y()
+    ToggleButton:
+        text: 'highlight'
+        on_press: root.mode.highlight_toggle()
+    ToggleButton:
+        text: 'field_of_view'
+        on_press: root.mode.fov_toggle()
+    ToggleButton:
+        text: 'angle'
+    ToggleButton:
+        text: 'distance'
+
+
 <ModeButton@ToggleButton>:
     group: 'mode'
     on_press: self.field.set_mode(self.text)
 
+<LoadDialog>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            id: filechooser
+            path: "./plays"
+            filters: '\*.yaml'
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                id: test
+                text: "Cancel"
+                on_release: root.cancel()
+
+            Button:
+                text: "Load"
+                on_release: root.load(filechooser.selection[0])
 
 <SelectionRect>
     size_hint: None, None
@@ -28,6 +68,7 @@
         text: root.label
         pos: root.pos
         size: root.size
+
 BoxLayout:
     orientation: 'vertical'
     BoxLayout:
@@ -55,10 +96,7 @@ BoxLayout:
             rows: 2
             minimum_width: 300
             ModeButton:
-                text: 'add o'
-                field: field
-            ModeButton:
-                text: 'add d'
+                text: 'add players'
                 field: field
             ModeButton:
                 text: 'move'
@@ -71,11 +109,16 @@ BoxLayout:
             text: 'Save'
             on_press: field.save_state()
         Button:
+            text: 'Load'
+            on_press: field.load_dialog()
+        Button:
+            text: 'Template'
+            on_press: field.load_template_dialog()
+        Button:
             text: 'Previous Frame'
             on_press: field.load_frame(field.frame_number - 1)
         Label:
             id: frame_number_label
-            text: '1'
         Button:
             text: 'Next Frame'
             on_press: field.load_frame(field.frame_number + 1)

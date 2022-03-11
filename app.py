@@ -1,5 +1,11 @@
 from kivy.config import Config
 from dataclasses import dataclass
+
+from kivy.properties import ObjectProperty
+from kivy.uix.filechooser import FileChooserListView
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.popup import Popup
+
 import mode
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 from collections import deque
@@ -21,6 +27,12 @@ from cfg import field_height_m, field_width_m
 from state import State
 import manim_animations
 from contextlib import contextmanager
+
+
+
+class LoadDialog(FloatLayout):
+    load = ObjectProperty(None)
+    cancel = ObjectProperty(None)
 
 Window.size, disc_width = (1800, 800), 40
 
@@ -61,7 +73,6 @@ class Field(RelativeLayout):
         self.state_img = manim_animations.StateImg()
         self.size_hint = (None, None)
         self.frame_number = 1
-        self.current_player_role = None
         self.current_player = None
         self.anglemode = False
         self.play_name = None
@@ -71,12 +82,35 @@ class Field(RelativeLayout):
         with self.canvas:
             self.image = kiImage(size_hint=(None, None))
         self.add_widget(self.update_img())
-        self.mode_text = 'view'
+        self.mode_text = 'iew'
+        self.filename = 'not saved'
         self.set_mode()
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_key_down)
+        self._keyboard.bind(on_key_up=self._on_key_up)
+        self.pressed_keys = set()
+
+    @property
+    def ctrl_pressed(self):
+        return any(k in self.pressed_keys for k in (305, 306))
+
+    def _keyboard_closed(self):
+        self._keyboard.unbind(on_key_down=self._on_key_down)
+        self._keyboard.unbind(on_key_up=self._on_key_up)
+        self._keyboard = None
+
+    def _on_key_down(self, keyboard, keycode, text, modifiers):
+        if keycode not in self.pressed_keys:
+            self.pressed_keys.add(keycode[0])
+
+    def _on_key_up(self, keyboard, keycode):
+        if keycode[0] in self.pressed_keys:
+            self.pressed_keys.remove(keycode[0])
 
     @property
     def state(self):
         return self.configuration.state
+
 
     @state.setter
     def state(self, value):
@@ -114,6 +148,7 @@ class Field(RelativeLayout):
     def do_and_reload(self, func):
         func()
         self.update_img()
+        self.mode.reload()
 
 
     def execute_text_command(self, command):
@@ -131,10 +166,8 @@ class Field(RelativeLayout):
         if not mode_text:
             mode_text = self.mode_text
         self.mode_text = mode_text
-        if mode_text == 'add o':
-            self.mode = mode.AddPlayerMode(self, 'o')
-        elif mode_text == 'add d':
-            self.mode = mode.AddPlayerMode(self, 'd')
+        if mode_text == 'add players':
+            self.mode = mode.AddPlayerMode(self)
         elif mode_text == 'move':
             self.mode = mode.EditPoseMode(self)
         elif mode_text == 'select':
@@ -179,19 +212,58 @@ class Field(RelativeLayout):
         self.state.save(f'{self.play_dir}/{self.frame_number}.yaml')
         self.prepare_animation_script()
         self.load_frame(self.frame_number + 1)
+        self.filename = 'not saved'
+
+    def dismiss_popup(self):
+        self._popup.dismiss()
+
+    def load_dialog(self):
+        content = LoadDialog(load=self.load_file, cancel=self.dismiss_popup)
+        PATH = "."
+        content.ids.filechooser.path = PATH
+        self._popup = Popup(title="Load file", content=content, size_hint=(0.9, 0.9))
+        self._popup.open()
+
+    def load_template_dialog(self):
+        content = LoadDialog(load=self.load_template_file, cancel=self.dismiss_popup)
+        PATH = "."
+        content.ids.filechooser.path = PATH
+        self._popup = Popup(title="Load file", content=content, size_hint=(0.9, 0.9))
+        self._popup.open()
+
+    def load_template_file(self, filename):
+        self.state = State.load(filename)
+        self.update_img()
+        self.dismiss_popup()
+
+    def load_file(self, filename):
+        self.play_dir, filename = os.path.split(filename)
+        self.play_name = os.path.basename(self.play_dir)
+        self.frame_number = int(os.path.splitext(filename)[0])
+        self.load_frame(self.frame_number)
+        self.dismiss_popup()
+
+    def update_description(self):
+        text = f'play: {self.play_name}\nframe: {self.frame_number}'
+        if self.filename == 'not saved':
+            text += '\n(unsaved)'
+        self.frame_number_label.text = text
+
 
     def load_state(self, frame_number):
         filename = f'{self.play_dir}/{frame_number}.yaml'
         if os.path.exists(filename):
+            self.filename = filename
             return State.load(filename)
+        self.filename = 'not saved'
         return None
 
     def load_frame(self, frame_number):
         self.frame_number = max(frame_number, 1)
-        self.frame_number_label.text = str(self.frame_number)
+        self.previous_state = self.load_state(self.frame_number - 1)
         new_state = self.load_state(self.frame_number)
         self.state = self.state if new_state is None else new_state
-        self.previous_state = self.load_state(self.frame_number - 1)
+        self.update_description()
         self.set_mode()
 
     def reset(self):
@@ -217,14 +289,6 @@ class Field(RelativeLayout):
             self.state = state_from_photo()
         except Exception as e:
             print(f'error\n{e}')
-
-    def add_offenders_mode(self):
-        self.reset()
-        self.current_player_role = 'o'
-
-    def add_defenders_mode(self):
-        self.reset()
-        self.current_player_role = 'd'
 
     def pix2pos(self, x, y, offset=0):
         x, y = y + offset, self.w - x - offset

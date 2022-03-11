@@ -78,6 +78,13 @@ class Field(VGroup):
         else:
             self.disc.become(new_disc)
 
+    def portrait(self):
+        def wrapper():
+            yield self.landscape_to_portrait()
+            self.portrait_to_landscape()
+        return contextmanager(wrapper)()
+
+
     def landscape_to_portrait(self):
         global_scene.play(self.animate.scale(ls2pt).rotate(-90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
 
@@ -409,7 +416,7 @@ class MovePlayer(Animation):
         # todo: first turn towards the target then turn towards the end state
         k_pos = self.rate_func(alpha)
         k_rot = self.rate_func_compressed(alpha)
-        
+
         return self.interpolation(k_rot, k_pos)
 
 

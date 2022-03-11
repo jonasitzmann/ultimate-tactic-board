@@ -1,6 +1,9 @@
 from abc import ABC
 
 from kivy.graphics import Rectangle, Color
+from kivy.properties import ObjectProperty
+from kivy.uix.behaviors import DragBehavior
+from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 
@@ -27,10 +30,21 @@ class SelectionRect(Widget):
 
 
 class Mode(ABC):
-    def __init__(self, field):
+    def __init__(self, field, get_widgets_func=None):
+        self.get_widgets = get_widgets_func or self.get_players
         self.field = field
-        self.widgets = []
         field.reset()
+        self.widgets = []
+        self.add_widgets()
+
+    def add_widgets(self):
+        self.widgets = self.get_widgets()
+        for w in self.widgets:
+            self.field.add_widget(w)
+
+    def remove_widgets(self):
+        for widget in self.widgets:
+            self.field.remove_widget(widget)
 
     def on_touch_down(self, touch):
         pass
@@ -41,6 +55,11 @@ class Mode(ABC):
     def on_touch_move(self, touch):
         pass
 
+    def reload(self):
+        self.remove_widgets()
+        self.add_widgets()
+        pass
+
     def get_widget_at(self, pos, widget_list=None):
         if widget_list is None:
             widget_list = self.widgets
@@ -48,23 +67,20 @@ class Mode(ABC):
             if widget.collide_point(*pos):
                 return widget
 
-    def add_players(self):
+    def get_players(self):
+        players =[]
         for pdict in self.field.state.players.values():
             for p in pdict.values():
-                player = PlayerWidget(p, self.field)
-                self.widgets.append(player)
-                self.field.add_widget(player)
-        return self.widgets.copy()
+                players.append(PlayerWidget(p, self.field))
+        return players
 
     def __del__(self):
-        for widget in self.widgets:
-            self.field.remove_widget(widget)
+        self.remove_widgets()
 
 
 class EditPoseMode(Mode):
     def __init__(self, field):
         super().__init__(field)
-        self.add_players()
         self.angle_mode = False
         self.current_player = None
 
@@ -100,17 +116,17 @@ class EditPoseMode(Mode):
 
 
 class AddPlayerMode(Mode):
-    def __init__(self, field, role):
+    def __init__(self, field):
         super().__init__(field)
-        self.role = role
         self.current_player = None
 
     def on_touch_down(self, touch):
+        role = 'd' if self.field.ctrl_pressed else 'o'
         if not self.field.collide_point(*touch.pos):
             return
         pos = self.field.pix2pos(*touch.pos)
         if touch.button == 'left':
-            cmd = command.AddPlayer(self.field, self.role, pos)
+            cmd = command.AddPlayer(self.field, role, pos)
             self.field.execute_cmd(cmd)
             self.current_player = cmd.player_widget
 
@@ -134,8 +150,8 @@ class AddPlayerMode(Mode):
 class SelectMode(Mode):
     def __init__(self, field):
         super().__init__(field)
-        self.players = self.add_players()
-        self.selection_commands = []
+        # self.selection_commands = []
+        self.selected_players = []
         self.selection_rect = None
 
     def __del__(self):
@@ -143,18 +159,20 @@ class SelectMode(Mode):
         self.undo_annotations()
 
     def undo_annotations(self):
-        for cmd in self.selection_commands:
-            self.field.do_and_reload(cmd.undo)
-        self.selection_commands = []
+        # for cmd in self.selection_commands:
+        #     self.field.do_and_reload(cmd.undo)
+        # self.selection_commands = []
+        self.selected_players = []
 
     def on_touch_down(self, touch):
         self.undo_annotations()
         if touch.button == 'left':
-            player = self.get_widget_at(touch.pos, self.players)
-            if player is not None:
-                cmd = command.FieldOfView(self.field, player.player_state)
-                self.field.do_and_reload(cmd.execute)
-                self.selection_commands.append(cmd)
+            player = self.get_widget_at(touch.pos)
+            if isinstance(player, PlayerWidget):
+                # cmd = command.FieldOfView(self.field, player.player_state)
+                self.selected_players = [player.player_state]
+                # self.field.do_and_reload(cmd.execute)
+                # self.selection_commands.append(cmd)
             else:
                 self.selection_rect = SelectionRect(pos=touch.pos)
                 self.widgets.append(self.selection_rect)
@@ -166,18 +184,89 @@ class SelectMode(Mode):
 
     def on_touch_up(self, touch):
         if self.selection_rect is not None:
-            selected_players = [p.player_state for p in self.players if self.selection_rect.collide_widget(p)]
-            cmd = command.HighlightPlayers(self.field, *selected_players)
-            self.field.do_and_reload(cmd.execute)
-            self.selection_commands.append(cmd)
+            self.selected_players = [
+                p.player_state for p in self.widgets
+                if self.selection_rect.collide_widget(p) and p is not self.selection_rect]
             self.field.remove_widget(self.selection_rect)
+            self.widgets.remove(self.selection_rect)
             self.selection_rect = None
+        if self.selected_players:
+            self.field.mode = PlayersSelectedMode(self.field, self.selected_players)
 
 
-class SelectedMode(Mode):
+class SelectionMenu(BoxLayout):
+    mode = ObjectProperty(None)
+
+
+class PlayersSelectedMode(Mode):
     def __init__(self, field, players):
-        super().__init__(field)
         self.players = players
+        super().__init__(field, self.get_widgets)
+        self.drag = False
+        self.menu = SelectionMenu(mode=self)
+        self.field.parent.add_widget(self.menu, index=1)
+        self.highlight_cmd = None
+        self.fov_annotations = None
+
+
+    def __del__(self):
+        self.field.parent.remove_widget(self.menu)
+        super().__del__()
+
+    def get_widgets(self):
+        player_states = [self.field.state.get_player(p) for p in self.players]
+        return [PlayerWidget(p, self.field) for p in player_states]
+
+    def on_touch_down(self, touch):
+        if self.get_widget_at(touch.pos) is None:
+            self.field.mode = SelectMode(self.field)
+            self.field.mode.on_touch_down(touch)
+            self.__del__()
+        else:
+            self.drag = True
+
+    def on_touch_move(self, touch):
+        if self.drag:
+            for widget in self.widgets:
+                widget.x += touch.dx
+                widget.y += touch.dy
+
+    def on_touch_up(self, touch):
+        if self.drag:
+            cmds = []
+            for player_widget in self.widgets:
+                cmds.append(command.MovePlayer(self.field, player_widget.player_state, pos=player_widget.pix2pos()))
+            self.field.execute_cmd(command.CommandList(cmds))
+            self.drag = False
+
+    def align_x(self):
+        self.field.do_and_reload(lambda: self.field.state.align_x(' '.join([p.name for p in self.players])))
+
+    def align_y(self):
+        self.field.do_and_reload(lambda: self.field.state.align_y(' '.join([p.name for p in self.players])))
+
+    def highlight_toggle(self):
+        if self.highlight_cmd is None:
+            self.highlight_cmd = command.HighlightPlayers(self.field, *self.players)
+            self.field.do_and_reload(self.highlight_cmd.execute)
+        else:
+            self.field.do_and_reload(self.highlight_cmd.undo)
+            self.highlight_cmd = None
+        self.field.do_and_reload(lambda: None)
+
+    def fov_toggle(self):
+        if self.fov_annotations is None:
+            self.fov_annotations = command.FieldOfView(self.field, *self.players)
+            self.field.do_and_reload(self.fov_annotations.execute)
+        else:
+            self.field.do_and_reload(self.fov_annotations.undo)
+            self.fov_annotations = None
+        self.field.do_and_reload(lambda: None)
+
+
+
+
+
 
 
 

@@ -23,7 +23,7 @@ class Command(ABC):
 
 
 class MovePlayer(Command):
-    def __init__(self, field, player, pos, angle):
+    def __init__(self, field, player, pos=None, angle=None):
         super().__init__(field)
         self.old_player, self.new_player = deepcopy(player), deepcopy(player)
         if pos is not None:
@@ -81,3 +81,17 @@ class FieldOfView(AnnotationsCommand):
         from manim_animations import Field as MField
         annotations = [partial(MField.field_of_view, player_name=player.name) for player in players]
         super().__init__(field, annotations)
+
+
+class CommandList(Command):
+    def __init__(self, commands):
+        self.commands = commands
+        super().__init__(None)
+
+    def execute(self):
+        for command in self.commands:
+            command.execute()
+
+    def undo(self):
+        for command in reversed(self.commands):
+            command.undo()
