@@ -275,7 +275,8 @@ def annotate_player(img, player, player_contour):
     :param player: player to be drawn
     :param player_contour: detected contour of the player
     """
-    cv2.drawContours(img, [player_contour], 0, player.color.astype(np.uint8).tolist(), -1)
+    player_color = cfg.cv2_red if player.role == 'o' else cfg.cv2_green
+    cv2.drawContours(img, [player_contour], 0, player_color, -1)
     text_pos = (player.pos * cfg.resize_factor + np.array([-17, 17])).astype(np.int32)
     cv2.putText(img, player.label, text_pos, 1, cfg.font_size, (0, 0, 0), 3)
 
@@ -292,6 +293,7 @@ def cluster_players_by_color(players: List[state.Player]):
         print(players[0].angle)
         return players, []
     kmeans = KMeans(n_clusters=2)
+    # todo: player does not have a color attribute anymore
     colors = np.array([p.color for p in players])
     kmeans.fit(np.array(colors))
     kmeans.cluster_centers_ = np.array(sorted(kmeans.cluster_centers_, key=lambda x: sum(x**2)))

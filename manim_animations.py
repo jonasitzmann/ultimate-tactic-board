@@ -66,7 +66,7 @@ class Field(VGroup):
     def load_state(self, state):
         self.state = copy.deepcopy(state)
         new_disc = get_disc(self.state.disc, self.cs)
-        new_players = VGroup(*[MPlayer(p, self.cs) for p in self.state.playerlist])
+        new_players = VGroup(*[MPlayer(p, self.cs) for p in self.state.players])
         if self.players is None:
             self.players = new_players
             self.add(self.players)

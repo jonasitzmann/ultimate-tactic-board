@@ -2,16 +2,14 @@ import numpy as np
 import attr_dict
 import cfg
 import yaml
-from itertools import chain
 from contextlib import contextmanager
 
 
 class Player:
-    def __init__(self, pos, angle=0, label='', color=None, role=''):
+    def __init__(self, pos=None, angle=0, label='', role=''):
         self.pos = np.array(pos)
         self.angle = int(angle)
         self.label = label
-        self.color = np.array(color)
         self.role = role
 
     @property
@@ -21,7 +19,7 @@ class Player:
     @staticmethod
     def from_dict(d):
         d = attr_dict.AttrDict(d)
-        return Player(pos=d.pos, angle=d.orientation, label=d.label, color=d.color, role=d.role)
+        return Player(pos=d.pos, angle=d.orientation, label=d.label, role=d.role)
 
     @property
     def manimpos(self):
@@ -43,7 +41,7 @@ class State:
     represents the state of play at an instant.
     """
     def __init__(self, players=None, disc=None, areas=None):
-        self.players = players if players is not None else {'o': {}, 'd': {}}
+        self.players = players if players is not None else []
         self.disc = [] if disc is None else disc
         self.areas = [] if areas is None else areas
 
@@ -51,35 +49,66 @@ class State:
         return str(self.__dict__)
 
     def add_player(self, role, pos, angle=0):
-        label = str(len(self.players[role]) + 1)
+        labels = [p.label for p in self.players if p.role == role]
+        label = str(min([x for x in range(len(labels) + 1) if str(x + 1) not in labels]) + 1)
         player = Player(pos, angle, label, role=role)
-        self.set_player(player)
+        self.players.append(player)
         return player
 
     def remove_player(self, player):
-        if player.role not in self.players:
-            return
-        self.players[player.role].pop(player.label)
+        if player in self.players:
+            self.players.remove(player)
 
-    @property
-    def playerlist(self):
-        return chain(*[pdict.values() for pdict in self.players.values()])
-
-    def get_player(self, player):
-        if player is not None:
-            return self.players.get(player.role, {}).get(player.label, None)
+    def get_player(self, reference_player):
+        player = None
+        if reference_player is not None:
+            matches = [p for p in self.players if p.name == reference_player.name and p.role == reference_player.role]
+            if len(matches) == 1:
+                player = matches[0]
+            else:
+                print(f'possible players: {matches}')
+        return player
 
     def set_player(self, player):
-        if player.role not in self.players:
-            self.players[player.role] = {}
-        self.players[player.role][player.label] = player
+        self.remove_player(self.get_player(player))
+        self.players.append(player)
 
     def find_player(self, name):
         role, label = name[0], name[1:]
-        return self.players.get(role, {}).get(label, None)
+        return self.get_player(Player(role=role, label=label))
 
     def find_players(self, names):
         return [self.find_player(name) for name in names.split(' ')]
+
+    def get_disc_holder(self):
+        offenders = [p for p in self.players if p.role == 'o']
+        dists = [np.linalg.norm(p.pos - self.disc) for p in offenders]
+        return offenders[np.argmin(dists)]
+
+    def setup_hex(self):
+        # sin_60 = np.sqrt(3) / 2
+        # pts = np.array([
+        #     [0, 0],
+        #     [0, 1],
+        #     [0, 2],
+        #     [sin_60, 0.5],
+        #     [-sin_60, 0.5],
+        #     [sin_60, 1.5],
+        #     [-sin_60, 1.5],
+        #
+        # ]).T
+        #
+        # angle = 5
+        # rad = np.deg2rad(angle)
+        # rot_matrix = np.array([
+        #     [np.cos(rad), -np.sin(rad)],
+        #     [np.sin(rad), np.cos(rad)]
+        # ])
+        # pts = rot_matrix @ pts
+        # plt.gca().set_aspect('equal')
+        # plt.scatter(*pts)
+
+        disc_pos = self.disc
 
     def align_x(self, players, to='mean'):
         players = self.find_players(players)
@@ -115,13 +144,9 @@ class State:
 
     @staticmethod
     def from_dict(d):
-        players = d['players']
-        for role, player_dict in players.items():
-            for label, player in player_dict.items():
-                player_dict[label] = Player.from_dict(player)
         d = attr_dict.AttrDict(d)
         return State(
-            players=players,
+            players=[Player.from_dict(player) for player in d.players],
             disc=d.disc,
             areas=d.areas
         )
@@ -152,7 +177,6 @@ def players_representer(dumper: yaml.Dumper, player: Player):
     return dumper.represent_dict(dict(
         pos=player.pos.tolist(),
         orientation=player.angle,
-        color=player.color.tolist(),
         label=player.label,
         role=player.role,
     ))

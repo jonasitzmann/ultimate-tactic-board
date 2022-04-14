@@ -68,11 +68,7 @@ class Mode(ABC):
                 return widget
 
     def get_players(self):
-        players =[]
-        for pdict in self.field.state.players.values():
-            for p in pdict.values():
-                players.append(PlayerWidget(p, self.field))
-        return players
+        return [PlayerWidget(p, self.field) for p in self.field.state.players]
 
     def __del__(self):
         self.remove_widgets()
@@ -101,7 +97,8 @@ class EditPoseMode(Mode):
                 prev_player = self.field.get_previous_player(self.current_player.player_state)
                 if prev_player is not None:
                     max_distance_no_turn = 3
-                    if np.linalg.norm(pos - prev_player.pos) > max_distance_no_turn:
+                    move_distance = np.linalg.norm(pos - prev_player.pos)
+                    if move_distance > max_distance_no_turn:
                         angle = float(np.arctan2(*(pos - prev_player.pos)) * 180 / np.pi + 180)
             elif self.angle_mode and not self.current_player.collide_point(*touch.pos):
                 pos1 = self.current_player.pix2pos()
@@ -221,7 +218,6 @@ class PlayersSelectedMode(Mode):
         if self.get_widget_at(touch.pos) is None:
             self.field.mode = SelectMode(self.field)
             self.field.mode.on_touch_down(touch)
-            self.__del__()
         else:
             self.drag = True
 

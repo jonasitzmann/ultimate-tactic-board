@@ -69,26 +69,30 @@ class Field(RelativeLayout):
         self.play_dir, self.play_number = get_play_dir()
         self.annotations = []
         self.configuration = Configuration()
-        self.previous_state = None
         self.state_img = manim_animations.StateImg()
         self.size_hint = (None, None)
         self.frame_number = 1
         self.current_player = None
         self.anglemode = False
         self.play_name = None
+        self.grid_size = 0.5
         hist_size = 50
         self.undo_cmds = deque(maxlen=hist_size)
         self.redo_cmds = deque(maxlen=hist_size)
         with self.canvas:
             self.image = kiImage(size_hint=(None, None))
         self.add_widget(self.update_img())
-        self.mode_text = 'iew'
-        self.filename = 'not saved'
+        self.mode_text = 'view'
         self.set_mode()
+        self.filename = 'not saved'
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_key_down)
         self._keyboard.bind(on_key_up=self._on_key_up)
         self.pressed_keys = set()
+
+    @property
+    def previous_state(self):
+        return self.load_state(self.frame_number - 1)
 
     @property
     def ctrl_pressed(self):
@@ -260,7 +264,6 @@ class Field(RelativeLayout):
 
     def load_frame(self, frame_number):
         self.frame_number = max(frame_number, 1)
-        self.previous_state = self.load_state(self.frame_number - 1)
         new_state = self.load_state(self.frame_number)
         self.state = self.state if new_state is None else new_state
         self.update_description()
@@ -294,6 +297,7 @@ class Field(RelativeLayout):
         x, y = y + offset, self.w - x - offset
         pos = np.array([x, y]) / self.scale
         pos[0] = field_width_m - pos[0]
+        pos = np.round(pos / self.grid_size) * self.grid_size
         return pos
 
     def get_previous_player(self, player):
