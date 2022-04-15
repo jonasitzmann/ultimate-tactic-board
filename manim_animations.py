@@ -50,7 +50,7 @@ class Field(VGroup):
         self.background = Rectangle(height=h, width=w, fill_color='#728669', fill_opacity=0.75)
         for direction, color in zip([DOWN, UP], [myblue, myred]):
             self.background.add(Line(ORIGIN, w * RIGHT, color=color).shift(w / 2 * LEFT + (h / 2 - ez_height) * direction))
-            self.background.add(Cross(stroke_color=WHITE, scale_factor=0.05, stroke_width=3).shift((h/2 - 2*ez_height) * direction))
+            self.background.add(Cross(stroke_color=GRAY, scale_factor=0.05, stroke_width=3).shift((h/2 - 2*ez_height) * direction))
         self.bounding_box = Rectangle(height=h, width=w)
         self.background.set_z_index(-1)
         self.state = state
@@ -86,14 +86,19 @@ class Field(VGroup):
         return contextmanager(wrapper)()
 
 
-    def landscape_to_portrait(self):
-        global_scene.play(self.animate.scale(ls2pt).rotate(90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
+    def landscape_to_portrait(self, animate=True):
+        obj = self.animate if animate else self
+        result = obj.scale(ls2pt).rotate(90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT)
+        if animate:
+            global_scene.play(result)
+        return self
 
     def portrait_to_landscape(self):
         global_scene.play(self.animate.scale(1 / ls2pt).rotate(-90 * DEGREES).move_to(ORIGIN))
+        return self
 
-    def transition(self, s2: State, run_time=4):
-        global_scene.play(*self.get_animations(s2), run_time=run_time)
+    def transition(self, s2: State, run_time=4, **kwargs):
+        global_scene.play(*self.get_animations(s2, **kwargs), run_time=run_time)
         self.load_state(s2)
 
     def contextmanager_animation(self, submobject_getter, redraw=True, fade=True, **kwargs):
@@ -149,10 +154,10 @@ class Field(VGroup):
                 if next_player is not None:
                     min_distance_arrow_m = 2
                     if np.linalg.norm(player.pos - next_player.pos) >= min_distance_arrow_m:
-                        arrow = Arrow(stroke_width=10 * self.cs.scale_(), color='white', max_tip_length_to_length_ratio=0.1)
+                        arrow = Arrow(stroke_width=10 * self.cs.scale_(), color='white', max_tip_length_to_length_ratio=0.05)
                         arrow.put_start_and_end_on(self.cs.c2p(*player.pos), self.cs.c2p(*next_player.pos))
                         arrow.set_z_index(4)
-                        arrow.set_opacity(0.5)
+                        arrow.set_opacity(0.3)
                         arrows.add(arrow)
         return arrows
 

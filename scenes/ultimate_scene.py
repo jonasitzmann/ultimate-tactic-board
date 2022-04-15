@@ -28,6 +28,6 @@ class UltimateScene(Scene):
         mob = Tex(tex).to_corner(UL)
         self.play(Write(mob))
         self.add(mob)
-        yield
+        yield mob
         self.play(FadeOut(mob, run_time=0.5))
         self.remove(mob)

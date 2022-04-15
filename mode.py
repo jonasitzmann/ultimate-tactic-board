@@ -127,10 +127,6 @@ class AddPlayerMode(Mode):
             self.field.execute_cmd(cmd)
             self.current_player = cmd.player_widget
 
-        elif touch.button == 'middle':
-            disc_pos = pos
-            self.field.state.disc = disc_pos
-            self.field.update_img()
 
     def on_touch_up(self, touch):
         if self.current_player is None or self.current_player.player_state is None or self.current_player.collide_point(*touch.pos):

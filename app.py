@@ -214,7 +214,13 @@ class Field(RelativeLayout):
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
-            self.mode.on_touch_down(touch)
+            if touch.button == 'middle':
+                pos = self.pix2pos(*touch.pos)
+                disc_pos = pos
+                self.state.disc = disc_pos
+                self.update_img()
+            else:
+                self.mode.on_touch_down(touch)
 
     def on_touch_up(self, touch):
         self.mode.on_touch_up(touch)
