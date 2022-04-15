@@ -94,9 +94,9 @@ class Field(RelativeLayout):
     def previous_state(self):
         return self.load_state(self.frame_number - 1)
 
-    @property
-    def ctrl_pressed(self):
-        return any(k in self.pressed_keys for k in (305, 306))
+    def is_pressed(self, *keys):
+        keycodes = [self._keyboard.keycodes.get(k, None) for k in keys]
+        return any(k in self.pressed_keys for k in keycodes)
 
     def _keyboard_closed(self):
         self._keyboard.unbind(on_key_down=self._on_key_down)
@@ -178,6 +178,8 @@ class Field(RelativeLayout):
             self.mode = mode.SelectMode(self)
         elif mode_text == 'view':
             self.mode = mode.ViewMode(self)
+        elif mode_text == 'hex':
+            self.mode = mode.SetupHexMode(self)
 
     def prepare_animation_script(self):
         with open(cfg.template_play_file, 'r') as f:
@@ -294,9 +296,9 @@ class Field(RelativeLayout):
             print(f'error\n{e}')
 
     def pix2pos(self, x, y, offset=0):
-        x, y = y + offset, self.w - x - offset
+        x, y = y + offset, x + offset
         pos = np.array([x, y]) / self.scale
-        pos[0] = field_width_m - pos[0]
+        pos[0] = cfg.field_width_m - pos[0]
         pos = np.round(pos / self.grid_size) * self.grid_size
         return pos
 

@@ -92,7 +92,7 @@ BoxLayout:
             text: 'Take Picture'
             on_press: field.take_picture()
         GridLayout:
-            cols: 2
+            cols: 3
             rows: 2
             minimum_width: 300
             ModeButton:
@@ -101,9 +101,11 @@ BoxLayout:
             ModeButton:
                 text: 'move'
                 field: field
-
             ModeButton:
                 text: 'select'
+                field: field
+            ModeButton:
+                text: 'hex'
                 field: field
         Button:
             text: 'Save'

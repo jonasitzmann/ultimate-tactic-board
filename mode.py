@@ -99,11 +99,11 @@ class EditPoseMode(Mode):
                     max_distance_no_turn = 3
                     move_distance = np.linalg.norm(pos - prev_player.pos)
                     if move_distance > max_distance_no_turn:
-                        angle = float(np.arctan2(*(pos - prev_player.pos)) * 180 / np.pi + 180)
+                        angle = float(np.arctan2(*(pos - prev_player.pos)) * -180 / np.pi)
             elif self.angle_mode and not self.current_player.collide_point(*touch.pos):
                 pos1 = self.current_player.pix2pos()
                 pos2 = self.field.pix2pos(*touch.pos)
-                angle = int(np.arctan2(*(pos2 - pos1)) * 180 / np.pi + 180)
+                angle = int(np.arctan2(*(pos2 - pos1)) * -180 / np.pi)
             if pos is not None or angle is not None:
                 cmd = command.MovePlayer(self.field, self.current_player.player_state, pos, angle)
                 self.field.execute_cmd(cmd)
@@ -118,7 +118,7 @@ class AddPlayerMode(Mode):
         self.current_player = None
 
     def on_touch_down(self, touch):
-        role = 'd' if self.field.ctrl_pressed else 'o'
+        role = 'd' if self.field.is_pressed('rctrl', 'lctrl') else 'o'
         if not self.field.collide_point(*touch.pos):
             return
         pos = self.field.pix2pos(*touch.pos)
@@ -129,7 +129,6 @@ class AddPlayerMode(Mode):
 
         elif touch.button == 'middle':
             disc_pos = pos
-            disc_pos[0] = cfg.field_width_m - disc_pos[0]
             self.field.state.disc = disc_pos
             self.field.update_img()
 
@@ -138,10 +137,29 @@ class AddPlayerMode(Mode):
             return
         pos1 = self.current_player.player_state.pos
         pos2 = self.field.pix2pos(touch.x, touch.y)
-        angle = int(np.arctan2(*(pos2 - pos1)) * 180 / np.pi + 180)
+        angle = int(np.arctan2(*(pos2 - pos1)) * -180 / np.pi)
         cmd = command.MovePlayer(self.field, self.current_player.player_state, None, angle)
         self.field.execute_cmd(cmd)
         self.current_player = None
+
+
+class SetupHexMode(Mode):
+    def __init__(self, field):
+        super().__init__(field)
+        self.pos = None
+
+    def on_touch_down(self, touch):
+        if touch.button == 'left':
+            self.pos = self.field.pix2pos(*touch.pos)
+            self.field.state.setup_hex(self.pos)
+            self.field.update_img()
+
+    # def on_touch_up(self, touch):
+    #     if self.pos is not None:
+    #         pos2 = self.field.pix2pos(touch.x, touch.y)
+    #         angle = int(np.arctan2(*(pos2 - self.pos)) * 180 / np.pi + 180)
+    #         self.field.state.setup_hex(angle, self.pos)
+    #         self.field.update_img()
 
 
 class SelectMode(Mode):

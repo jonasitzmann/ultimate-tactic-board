@@ -3,6 +3,7 @@ import attr_dict
 import cfg
 import yaml
 from contextlib import contextmanager
+import tactics_utils
 
 
 class Player:
@@ -23,11 +24,11 @@ class Player:
 
     @property
     def manimpos(self):
-        return np.array([cfg.field_width_m - self.pos[0], self.pos[1], 1])
+        return np.array([self.pos[0], self.pos[1], 1])
 
     @property
     def manimangle(self):
-        return np.deg2rad(self.angle - 180)
+        return np.deg2rad(self.angle)
 
     def __repr__(self):
         return str(self.__dict__)
@@ -85,30 +86,20 @@ class State:
         dists = [np.linalg.norm(p.pos - self.disc) for p in offenders]
         return offenders[np.argmin(dists)]
 
-    def setup_hex(self):
-        # sin_60 = np.sqrt(3) / 2
-        # pts = np.array([
-        #     [0, 0],
-        #     [0, 1],
-        #     [0, 2],
-        #     [sin_60, 0.5],
-        #     [-sin_60, 0.5],
-        #     [sin_60, 1.5],
-        #     [-sin_60, 1.5],
-        #
-        # ]).T
-        #
-        # angle = 5
-        # rad = np.deg2rad(angle)
-        # rot_matrix = np.array([
-        #     [np.cos(rad), -np.sin(rad)],
-        #     [np.sin(rad), np.cos(rad)]
-        # ])
-        # pts = rot_matrix @ pts
-        # plt.gca().set_aspect('equal')
-        # plt.scatter(*pts)
-
-        disc_pos = self.disc
+    def setup_hex(self, pos=None, angle=None, dist=None, min_sideline_dist=None):
+        pos = pos if pos is not None else np.array([cfg.field_width_m/2, 20])
+        dist = dist if dist is not None else cfg.hex_dist_m
+        sin_60 = np.sqrt(3) / 2
+        if angle is None:
+            angle = tactics_utils.get_hex_angle(pos, dist, min_sideline_dist)
+        self.disc = np.array(pos)
+        self.players.clear()
+        pts = np.array([[0, 0], [0, 1], [0, 2], [sin_60, 0.5], [-sin_60, 0.5], [sin_60, 1.5], [-sin_60, 1.5]]).T * dist
+        angle = np.deg2rad(angle)
+        rot_matrix = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+        pts = (rot_matrix @ pts) + pos[:, None]
+        for p in pts.T:
+            self.add_player('o', p)
 
     def align_x(self, players, to='mean'):
         players = self.find_players(players)

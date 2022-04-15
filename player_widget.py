@@ -18,13 +18,14 @@ class PlayerWidget(DragBehavior, Label):
     def player_state(self):
         return self.field.state.get_player(self.player_state_)
 
-
     def pix2pos(self):
         offset = player_width / 2
-        return self.field.pix2pos(self.x, self.y, offset)
+        pos = self.field.pix2pos(self.x, self.y, offset)
+        return pos
 
     def pos2pix(self, pos):
-        x, y = pos
-        x = cfg.field_width_m - x
-        x, y = cfg.field_height_m - y, x
-        return (np.array([x, y]) * self.field.scale - (player_width / 2)).astype(int).tolist()
+        y, x = cfg.field_width_m - pos[0], pos[1]
+        print('before', pos)
+        pos = (np.array([x, y]) * self.field.scale - (player_width / 2)).astype(int).tolist()
+        print('after', pos)
+        return pos

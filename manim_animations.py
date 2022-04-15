@@ -30,7 +30,7 @@ def get_trapezoid(vanishing_pt, shorter_side_pt_1, shorter_side_pt_2, distance):
 def get_disc(state_disc, cs):
     group = VGroup()
     if len(state_disc) > 0:
-        group.add(Dot(stroke_width=0, fill_color=WHITE, fill_opacity=1, radius=0.5 * cs.scale_(), z_index=3))
+        group.add(Dot(stroke_width=0, fill_color=WHITE, fill_opacity=1, radius=0.3 * cs.scale_(), z_index=3))
         group.move_to(cs.c2p(*state_disc))
     return group
 
@@ -47,7 +47,7 @@ class Field(VGroup):
         h, w = np.array([100, 37]) * scale
         ez_height = 18 * scale
         self.background = Rectangle(height=h, width=w, fill_color='#728669', fill_opacity=0.75)
-        for direction, color in zip([UP, DOWN], [myred, myblue]):
+        for direction, color in zip([DOWN, UP], [myblue, myred]):
             self.background.add(Line(ORIGIN, w * RIGHT, color=color).shift(w / 2 * LEFT + (h / 2 - ez_height) * direction))
             self.background.add(Cross(stroke_color=WHITE, scale_factor=0.05, stroke_width=3).shift((h/2 - 2*ez_height) * direction))
         self.bounding_box = Rectangle(height=h, width=w)
@@ -86,10 +86,10 @@ class Field(VGroup):
 
 
     def landscape_to_portrait(self):
-        global_scene.play(self.animate.scale(ls2pt).rotate(-90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
+        global_scene.play(self.animate.scale(ls2pt).rotate(90 * DEGREES).move_to(ORIGIN).to_edge(RIGHT))
 
     def portrait_to_landscape(self):
-        global_scene.play(self.animate.scale(1 / ls2pt).rotate(90 * DEGREES).move_to(ORIGIN))
+        global_scene.play(self.animate.scale(1 / ls2pt).rotate(-90 * DEGREES).move_to(ORIGIN))
 
     def transition(self, s2: State, run_time=4):
         global_scene.play(*self.get_animations(s2), run_time=run_time)
@@ -254,7 +254,6 @@ class Field(VGroup):
 class FrameOfReference(Axes):
     def __init__(self, h, w, scale, *args, **kwargs):
         super().__init__(x_range=[0, w, w+1], y_range=[0, h, h+1], x_length=w*scale, y_length=h*scale, tips=False)
-        self.rotate(180 * DEGREES)
         self.c2p = self.coords_to_point
 
     def scale_(self):
@@ -420,9 +419,6 @@ class MovePlayer(Animation):
         return self.interpolation(k_rot, k_pos)
 
 
-
-
-
 def create_movie(cls, debug, opengl=False, hq=False, output_file=None, dry_run=False):
     if debug:
         obj = cls()
@@ -467,7 +463,6 @@ class StateImg(Scene):
         field = Field(self, state=self.state, height=10, scale_for_landscape=False).scale(config.frame_width / 10).rotate(-90 * DEGREES)
         for annotation in self.annotations:
             annotation(field, fade=False).__enter__()
-
 
 
 def get_states_from_dir(dir_path):

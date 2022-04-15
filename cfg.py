@@ -100,3 +100,6 @@ show_transformed = False
 # demo_img = input_imgs_dir + '/not_supported/' + 'new_arrows.jpg'
 demo_img = input_imgs_dir + 'current.jpg'
 demo_state_path = temp_dir + 's.yaml'
+
+# tactics
+hex_dist_m = 10
