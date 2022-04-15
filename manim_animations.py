@@ -4,13 +4,14 @@ from functools import partial
 import copy
 from manim.renderer.opengl_renderer import OpenGLRenderer
 
+from tactics_utils import get_hex_angle
 from cv_utils import round_to_odd
 import cfg
 from manim import *
 from glob import glob
 import inspect
 import os
-from state import State
+from state import State, Player
 landscape_scale = (config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # landscape
 portrait_scale = (config.frame_y_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # portrait
 portrait_scale_no_buffer = config.frame_y_radius / 50
@@ -126,6 +127,37 @@ class Field(VGroup):
         """
         player = self.get_player(player_name)
         return self.contextmanager_animation(player.get_field_of_view, field=self, *args, **kwargs)
+
+    def get_play_direction_arrows(self):
+        def play_direction_func(pos):
+            field_pos = self.cs.point_to_coords(pos)[:2]
+            angle = get_hex_angle(field_pos) * DEGREES
+            return rotate_vector(UP * self.cs.scale_(), angle + self.cs.get_angle())
+        vector_field = ArrowVectorField(play_direction_func, color=myblue)
+        return vector_field
+
+    def play_direction_arrows(self, **kwargs):
+        return self.contextmanager_animation(self.get_play_direction_arrows, **kwargs)
+
+    def get_arrows(self, state=None, next_state: State = None):
+        if state is None:
+            state = self.state
+        arrows = VGroup()
+        if next_state is not None:
+            for player in state.players:
+                next_player = next_state.get_player(player)
+                if next_player is not None:
+                    min_distance_arrow_m = 2
+                    if np.linalg.norm(player.pos - next_player.pos) >= min_distance_arrow_m:
+                        arrow = Arrow(stroke_width=10 * self.cs.scale_(), color='white', max_tip_length_to_length_ratio=0.1)
+                        arrow.put_start_and_end_on(self.cs.c2p(*player.pos), self.cs.c2p(*next_player.pos))
+                        arrow.set_z_index(4)
+                        arrow.set_opacity(0.5)
+                        arrows.add(arrow)
+        return arrows
+
+    def arrows(self, state=None, next_state: State=None, redraw=False, **kwargs):
+        return self.contextmanager_animation(self.get_arrows, state=state, next_state=next_state, redraw=redraw, **kwargs)
 
     def measure_distance(self, p1, p2, distance=None, *args, **kwargs):
         p1, p2 = self.get_player(p1), self.get_player(p2)

@@ -206,7 +206,7 @@ class SelectMode(Mode):
             self.widgets.remove(self.selection_rect)
             self.selection_rect = None
         if self.selected_players:
-            self.field.mode = PlayersSelectedMode(self.field, self.selected_players)
+            self.field.set_mode_(PlayersSelectedMode(self.field, self.selected_players))
 
 
 class SelectionMenu(BoxLayout):
@@ -223,7 +223,6 @@ class PlayersSelectedMode(Mode):
         self.highlight_cmd = None
         self.fov_annotations = None
 
-
     def __del__(self):
         self.field.parent.remove_widget(self.menu)
         super().__del__()
@@ -234,7 +233,7 @@ class PlayersSelectedMode(Mode):
 
     def on_touch_down(self, touch):
         if self.get_widget_at(touch.pos) is None:
-            self.field.mode = SelectMode(self.field)
+            self.field.set_mode_(SelectMode(self.field))
             self.field.mode.on_touch_down(touch)
         else:
             self.drag = True
@@ -276,14 +275,6 @@ class PlayersSelectedMode(Mode):
             self.field.do_and_reload(self.fov_annotations.undo)
             self.fov_annotations = None
         self.field.do_and_reload(lambda: None)
-
-
-
-
-
-
-
-
 
 
 class ViewMode(Mode):

@@ -66,8 +66,6 @@ class State:
             matches = [p for p in self.players if p.name == reference_player.name and p.role == reference_player.role]
             if len(matches) == 1:
                 player = matches[0]
-            else:
-                print(f'possible players: {matches}')
         return player
 
     def set_player(self, player):

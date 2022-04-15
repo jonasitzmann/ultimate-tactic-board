@@ -1,3 +1,5 @@
+from manim_animations import Field as MField
+from functools import partial
 from kivy.config import Config
 from dataclasses import dataclass
 
@@ -66,6 +68,7 @@ class Configuration:
 class Field(RelativeLayout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.mode = None
         self.play_dir, self.play_number = get_play_dir()
         self.annotations = []
         self.configuration = Configuration()
@@ -171,15 +174,20 @@ class Field(RelativeLayout):
             mode_text = self.mode_text
         self.mode_text = mode_text
         if mode_text == 'add players':
-            self.mode = mode.AddPlayerMode(self)
+            self.set_mode_(mode.AddPlayerMode(self))
         elif mode_text == 'move':
-            self.mode = mode.EditPoseMode(self)
+            self.set_mode_(mode.EditPoseMode(self))
         elif mode_text == 'select':
-            self.mode = mode.SelectMode(self)
+            self.set_mode_(mode.SelectMode(self))
         elif mode_text == 'view':
-            self.mode = mode.ViewMode(self)
+            self.set_mode_(mode.ViewMode(self))
         elif mode_text == 'hex':
-            self.mode = mode.SetupHexMode(self)
+            self.set_mode_(mode.SetupHexMode(self))
+
+    def set_mode_(self, mode_):
+        if self.mode is not None:
+            self.mode.__del__()
+        self.mode = mode_
 
     def prepare_animation_script(self):
         with open(cfg.template_play_file, 'r') as f:
@@ -259,14 +267,16 @@ class Field(RelativeLayout):
     def load_state(self, frame_number):
         filename = f'{self.play_dir}/{frame_number}.yaml'
         if os.path.exists(filename):
-            self.filename = filename
             return State.load(filename)
-        self.filename = 'not saved'
-        return None
 
     def load_frame(self, frame_number):
         self.frame_number = max(frame_number, 1)
         new_state = self.load_state(self.frame_number)
+        if new_state is not None:
+            self.state = new_state
+            self.filename = str(self.frame_number)
+        else:
+            self.filename = 'not saved'
         self.state = self.state if new_state is None else new_state
         self.update_description()
         self.set_mode()
@@ -280,7 +290,12 @@ class Field(RelativeLayout):
         return max([self.h, self.w]) / field_height_m
 
     def update_img(self):
+        annotations = self.configuration.annotations
+        past_arrows = partial(MField.arrows, state=self.load_state(self.frame_number - 1), next_state=self.state)
+        future_arrows = partial(MField.arrows, state=self.state, next_state=self.load_state(self.frame_number + 1))
+        annotations += [past_arrows, future_arrows]
         img_data = self.state_img.get_img(self.state, self.configuration.annotations)
+        self.configuration.annotations = [a for a in annotations if a not in [past_arrows, future_arrows]]
         data = BytesIO()
         img_data.save(data, format='png')
         data.seek(0)  # yes you actually need this

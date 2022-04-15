@@ -25,7 +25,5 @@ class PlayerWidget(DragBehavior, Label):
 
     def pos2pix(self, pos):
         y, x = cfg.field_width_m - pos[0], pos[1]
-        print('before', pos)
         pos = (np.array([x, y]) * self.field.scale - (player_width / 2)).astype(int).tolist()
-        print('after', pos)
         return pos
