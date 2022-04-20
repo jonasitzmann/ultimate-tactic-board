@@ -23,11 +23,8 @@ class UltimateScene(Scene):
         with multi_context(contextmanagers):
             self.wait(t)
 
-    @contextmanager
-    def tex(self, tex):
-        mob = Tex(tex).to_corner(UL)
-        self.play(Write(mob))
-        self.add(mob)
-        yield mob
-        self.play(FadeOut(mob, run_time=0.5))
-        self.remove(mob)
+    def get_tex(self, snippet_name):
+        with open(f'../tex/{snippet_name}.tex', 'r') as f:
+            return f.read()
+
+

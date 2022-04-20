@@ -97,6 +97,11 @@ class Field(RelativeLayout):
     def previous_state(self):
         return self.load_state(self.frame_number - 1)
 
+    @property
+    def ctrl_pressed(self):
+        return self.is_pressed('rctrl', 'lctrl')
+
+
     def is_pressed(self, *keys):
         keycodes = [self._keyboard.keycodes.get(k, None) for k in keys]
         return any(k in self.pressed_keys for k in keycodes)
@@ -173,7 +178,7 @@ class Field(RelativeLayout):
         if not mode_text:
             mode_text = self.mode_text
         self.mode_text = mode_text
-        if mode_text == 'add players':
+        if mode_text == 'add':
             self.set_mode_(mode.AddPlayerMode(self))
         elif mode_text == 'move':
             self.set_mode_(mode.EditPoseMode(self))
@@ -214,7 +219,7 @@ class Field(RelativeLayout):
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
-            if touch.button == 'middle':
+            if touch.button == 'middle' or self.is_pressed('shift'):
                 pos = self.pix2pos(*touch.pos)
                 disc_pos = pos
                 self.state.disc = disc_pos

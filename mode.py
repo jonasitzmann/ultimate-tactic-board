@@ -83,15 +83,15 @@ class EditPoseMode(Mode):
     def on_touch_down(self, touch):
         self.current_player = self.get_widget_at(touch.pos)
         if self.current_player is not None:
-            if touch.button == 'left':
-                self.current_player.on_touch_down(touch)
-            else:
+            if touch.button == 'right' or self.field.ctrl_pressed:
                 self.angle_mode = True
+            else:
+                self.current_player.on_touch_down(touch)
 
     def on_touch_up(self, touch):
         if self.current_player is not None:
             angle = pos = None
-            if touch.button == 'left':
+            if not touch.button == 'left' or not self.field.ctrl_pressed:
                 self.current_player.on_touch_up(touch)
                 pos = self.current_player.pix2pos()
                 prev_player = self.field.get_previous_player(self.current_player.player_state)
@@ -118,7 +118,7 @@ class AddPlayerMode(Mode):
         self.current_player = None
 
     def on_touch_down(self, touch):
-        role = 'd' if self.field.is_pressed('rctrl', 'lctrl') else 'o'
+        role = 'd' if self.field.ctrl_pressed else 'o'
         if not self.field.collide_point(*touch.pos):
             return
         pos = self.field.pix2pos(*touch.pos)

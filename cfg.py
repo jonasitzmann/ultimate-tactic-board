@@ -102,4 +102,4 @@ demo_img = input_imgs_dir + 'current.jpg'
 demo_state_path = temp_dir + 's.yaml'
 
 # tactics
-hex_dist_m = 10
+hex_dist_m = 11

@@ -93,11 +93,13 @@ class State:
         self.disc = np.array(pos)
         self.players.clear()
         pts = np.array([[0, 0], [0, 1], [0, 2], [sin_60, 0.5], [-sin_60, 0.5], [sin_60, 1.5], [-sin_60, 1.5]]).T * dist
+        player_angles = np.array([0, 180, 180, 120, -120, 150, -150]) + angle
         angle = np.deg2rad(angle)
         rot_matrix = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
         pts = (rot_matrix @ pts) + pos[:, None]
-        for p in pts.T:
-            self.add_player('o', p)
+        for p, a in zip(pts.T, player_angles):
+            self.add_player('o', p, a)
+        return self
 
     def align_x(self, players, to='mean'):
         players = self.find_players(players)

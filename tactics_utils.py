@@ -7,6 +7,8 @@ from functools import lru_cache
 @lru_cache(maxsize=100)
 def get_angle(space_available, dist, sign):
     angle = np.rad2deg(np.arcsin(space_available / dist)) - 60
+    if space_available < 0:
+        angle = -90
     return angle * -sign
 
 

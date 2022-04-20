@@ -13,7 +13,7 @@ import inspect
 import os
 from state import State, Player
 landscape_scale = (config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # landscape
-portrait_scale = (config.frame_y_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 50  # portrait
+portrait_scale = (config.frame_y_radius - SMALL_BUFF) / 50  # portrait
 portrait_scale_no_buffer = config.frame_y_radius / 50
 
 myred = '#c22a2a'
@@ -42,6 +42,8 @@ global_scene = None
 class Field(VGroup):
     global scene
     def __init__(self, scene=None, state=None, height=10, scale_for_landscape=True, **kwargs):
+        if state is None:
+            state = State()
         VGroup.__init__(self, **kwargs)
         scale = height / 100
         self.cs = FrameOfReference(100, 37, scale)
@@ -64,20 +66,21 @@ class Field(VGroup):
         if scale_for_landscape:
             self.scale((config.frame_x_radius - DEFAULT_MOBJECT_TO_EDGE_BUFFER) / 5).rotate(-90 * DEGREES)
 
+    def set_player(self, state_player):
+        self.state.set_player(state_player)
+        self.load_state(self.state)
+        return self.get_player(f'{state_player.role}{state_player.label}')
+
     def load_state(self, state):
         self.state = copy.deepcopy(state)
         new_disc = get_disc(self.state.disc, self.cs)
         new_players = VGroup(*[MPlayer(p, self.cs) for p in self.state.players])
-        if self.players is None:
-            self.players = new_players
-            self.add(self.players)
-        else:
-            self.players.become(new_players)
-        if self.disc is None:
-            self.disc = new_disc
-            self.add(self.disc)
-        else:
-            self.disc.become(new_disc)
+        self.remove(self.players)
+        self.players = new_players
+        self.add(self.players)
+        self.remove(self.disc)
+        self.disc = new_disc
+        self.add(new_disc)
 
     def portrait(self):
         def wrapper():
@@ -85,6 +88,8 @@ class Field(VGroup):
             self.portrait_to_landscape()
         return contextmanager(wrapper)()
 
+    def get_player_labels(self):
+        return VGroup(*[Tex(p.player.name).move_to(p) for p in self.players])
 
     def landscape_to_portrait(self, animate=True):
         obj = self.animate if animate else self
@@ -138,7 +143,13 @@ class Field(VGroup):
             field_pos = self.cs.point_to_coords(pos)[:2]
             angle = get_hex_angle(field_pos) * DEGREES
             return rotate_vector(UP * self.cs.scale_(), angle + self.cs.get_angle())
-        vector_field = ArrowVectorField(play_direction_func, color=myblue)
+        vertices = [self.cs.c2p(*p) for p in [(0, 0), (0, 100), (37, 0), (37, 100)]]
+        vector_field = ArrowVectorField(
+            play_direction_func,
+            color=myblue,
+            x_range=[min(v[0] for v in vertices), max(v[0] for v in vertices)],
+            y_range=[min(v[1] for v in vertices), max(v[1] for v in vertices)],
+        )
         return vector_field
 
     def play_direction_arrows(self, **kwargs):
@@ -281,6 +292,7 @@ class Field(VGroup):
         movements = []
         for player in self.players:
             movements.append(MovePlayer(player, new_state))
+        print(self.disc)
         movements.append(MoveDisc(self.disc, get_disc(new_state.disc, self.cs), disc_delay))
         return movements
 
@@ -292,6 +304,7 @@ class FrameOfReference(Axes):
     def __init__(self, h, w, scale, *args, **kwargs):
         super().__init__(x_range=[0, w, w+1], y_range=[0, h, h+1], x_length=w*scale, y_length=h*scale, tips=False)
         self.c2p = self.coords_to_point
+
 
     def scale_(self):
         return np.linalg.norm((self.c2p(*UP) - self.c2p(*ORIGIN)))
@@ -326,7 +339,6 @@ class MPlayer(VGroup):
     def is_o(self):
         return self.player.role == 'o'
 
-
     def get_highlight(self):
         hightlight_opacity = 0.4
         c = Circle(
@@ -342,7 +354,7 @@ class MPlayer(VGroup):
 
     def get_field_of_view(self, field: Field):
         reach = 50 * self.cs.scale_()
-        opening_angle = 130 * DEGREES
+        opening_angle = 140 * DEGREES
         angle = self.cs.get_angle() + self.player.manimangle + (PI - opening_angle) / 2
         field_of_view = AnnularSector(
             inner_radius=0,
