@@ -103,4 +103,4 @@ class FlowchartWithDisc(Scene):
 
 
 if __name__ == '__main__':
-    create_movie(FlowchartWithDisc, debug=False, hq=True, output_file='play_name.mp4')
+    create_movie(FlowchartWithDisc, debug=False, hq=True, output_file='flowchart_with_disc.mp4')
