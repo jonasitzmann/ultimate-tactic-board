@@ -44,6 +44,8 @@ class Field(VGroup):
     def __init__(self, scene=None, state=None, height=10, scale_for_landscape=True, **kwargs):
         if state is None:
             state = State()
+        if isinstance(state, str):
+            state = State.load(state)
         VGroup.__init__(self, **kwargs)
         scale = height / 100
         self.cs = FrameOfReference(100, 37, scale)
@@ -72,6 +74,8 @@ class Field(VGroup):
         return self.get_player(f'{state_player.role}{state_player.label}')
 
     def load_state(self, state):
+        if isinstance(state, str):
+            state = State.load(state)
         self.state = copy.deepcopy(state)
         new_disc = get_disc(self.state.disc, self.cs)
         new_players = VGroup(*[MPlayer(p, self.cs) for p in self.state.players])
@@ -103,6 +107,8 @@ class Field(VGroup):
         return self
 
     def transition(self, s2: State, run_time=4, **kwargs):
+        if isinstance(s2, str):
+            s2 = State.load(s2)
         global_scene.play(*self.get_animations(s2, **kwargs), run_time=run_time)
         self.load_state(s2)
 
@@ -122,9 +128,8 @@ class Field(VGroup):
         ctx_mng = contextmanager(wrapper)()
         return ctx_mng
 
-    def highlight(self, player_name, **kwargs):
-        player = self.get_player(player_name)
-        return self.contextmanager_animation(player.get_highlight, redraw=False, **kwargs)
+    def highlight(self, player_name, fade=True, **kwargs):
+        return self.contextmanager_animation(lambda: self.get_player(player_name).get_highlight(**kwargs), redraw=True, fade=fade)
 
     def marker_shadow(self):
         return self.contextmanager_animation(self.get_marking_shadow)
@@ -288,10 +293,10 @@ class Field(VGroup):
     def defenders(self):
         return VGroup(*[p for p in self.players if not p.is_o])
 
-    def get_animations(self, new_state, disc_delay=0.5):
+    def get_animations(self, new_state, disc_delay=0.5, **kwargs):
         movements = []
         for player in self.players:
-            movements.append(MovePlayer(player, new_state))
+            movements.append(MovePlayer(player, new_state, **kwargs))
         print(self.disc)
         movements.append(MoveDisc(self.disc, get_disc(new_state.disc, self.cs), disc_delay))
         return movements
@@ -324,12 +329,13 @@ class FrameOfReference(Axes):
 class MPlayer(VGroup):
     def __init__(self, player, frame_of_ref):
         self.player = player
-        size = np.array([1.2, 1.2] if player.role == 'o' else [2, 0.5]) * frame_of_ref.scale_()
+        scale = frame_of_ref.scale_() * cfg.player_scale
+        size = np.array([cfg.o_width, cfg.o_height] if player.role == 'o' else [cfg.d_width, cfg.d_height]) * scale
         color = myblue if self.is_o else myred
         super().__init__(color=color)
         self.ellipse=Ellipse(*size, stroke_width=0, fill_color=color, fill_opacity=1, z_index=2)
         self.cs = frame_of_ref
-        self.nose = Triangle(fill_color=color, fill_opacity=1, z_index=2, stroke_width=0).scale_to_fit_height(0.5 * frame_of_ref.scale_())
+        self.nose = Triangle(fill_color=color, fill_opacity=1, z_index=2, stroke_width=0).scale_to_fit_height(0.6 * scale)
         self.nose.next_to(self.ellipse, UP, buff=-size[1]/5)
         self.add(self.ellipse, self.nose)
         self.rotate(self.player.manimangle + self.cs.get_angle())
@@ -429,7 +435,7 @@ class MoveDisc(Animation):
 
 
 class MovePlayer(Animation):
-    def __init__(self, mobject, end_state: State, real_time=4, *args, **kwargs):
+    def __init__(self, mobject, end_state: State, d_delay=0.1, real_time=4, *args, **kwargs):
         super().__init__(mobject, *args, **kwargs)
         self.rate_func = partial(smooth, inflection=4)
         self.start_state = copy.deepcopy(mobject.player)
@@ -441,6 +447,8 @@ class MovePlayer(Animation):
         max_speed_floating = 7
         self.last_k_rot = 0
         self.total_shift = self.cs.c2p(*self.end_state.manimpos) - self.cs.c2p(*self.start_state.manimpos)
+        if mobject.player.role == 'd':
+            self.rate_func = delayed(self.rate_func, d_delay)
         self.rate_func_compressed = compressed_front(self.rate_func, 0.7)
         if avg_speed_kmh > max_speed_floating:
             self.interpolate_mobject = self.run_interpolation

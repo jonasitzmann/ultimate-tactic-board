@@ -71,6 +71,7 @@ draw_scale = 8.7
 disc_size_m = 0.6
 
 
+
 # open camera remote server
 ip = '192.168.178.22'
 http_port = 8080
@@ -100,6 +101,13 @@ show_transformed = False
 # demo_img = input_imgs_dir + '/not_supported/' + 'new_arrows.jpg'
 demo_img = input_imgs_dir + 'current.jpg'
 demo_state_path = temp_dir + 's.yaml'
+
+#manim
+o_width = 1.2
+o_height = 1.2
+d_width = 2
+d_height = 0.5
+player_scale = 1
 
 # tactics
 hex_dist_m = 11
