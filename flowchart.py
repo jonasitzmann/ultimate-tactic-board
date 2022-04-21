@@ -51,7 +51,6 @@ def get_focus_mobject(mobject):
 focus_mobject = None
 def focus(mobject):
     global focus_mobject
-    print(mobject)
     new_focus_mobject = get_focus_mobject(mobject)
     if focus_mobject is None:
         anim = FadeIn(focus_mobject)

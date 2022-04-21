@@ -301,6 +301,10 @@ class Field(VGroup):
         movements.append(MoveDisc(self.disc, get_disc(new_state.disc, self.cs), disc_delay))
         return movements
 
+    def fake(self, target_player_name):
+        target_player = self.get_player(target_player_name)
+        global_scene.play(Fake(self.disc, target_player, self.cs.scale_()))
+
 
 
 
@@ -411,7 +415,6 @@ def compressed_front(func, neg_delay):
     return wrapper
 
 
-
 class MoveDisc(Animation):
     # todo: calc delay and inflection based on the range and avg. speed of the throw
     # todo: eg: short throws move linearly while long throws slow down significantly
@@ -431,13 +434,48 @@ class MoveDisc(Animation):
         self.current_k = k
 
 
+class Fake(Animation):
+    # todo: use logic from MoveDisc to avoid code duplication
+    def __init__(self, disc, target_player, scale, run_time=0.5):
+        super().__init__(disc, run_time=run_time)
+        fake_distance = 1
+        self.rate_func = there_and_back
+        self.target_player = target_player
+        direction = normalize(self.target_player.get_center() - disc.get_center())
+        self.total_shift = fake_distance * direction * scale
+        self.current_k = 0
 
+    def interpolate_mobject(self, alpha):
+        k = self.rate_func(alpha)
+        delta_k = k - self.current_k
+        self.mobject.shift(self.total_shift * delta_k)
+        self.current_k = k
+
+
+def linearize_start(func):
+    def rate_func(alpha):
+        if alpha < 0.5:
+            return alpha
+        return func(alpha)
+    return rate_func
+
+
+def linearize_end(func):
+    def rate_func(alpha):
+        if alpha > 0.5:
+            return alpha
+        return func(alpha)
+    return rate_func
 
 
 class MovePlayer(Animation):
-    def __init__(self, mobject, end_state: State, d_delay=0.1, real_time=4, *args, **kwargs):
+    def __init__(self, mobject, end_state: State, d_delay=0.1, real_time=4, linear_start=False, linear_end=False, *args, **kwargs):
         super().__init__(mobject, *args, **kwargs)
         self.rate_func = partial(smooth, inflection=4)
+        if linear_start:
+            self.rate_func = linearize_start(self.rate_func)
+        if linear_end:
+            self.rate_func = linearize_end(self.rate_func)
         self.start_state = copy.deepcopy(mobject.player)
         self.end_state = end_state.get_player(mobject.player)
         self.cs = mobject.cs

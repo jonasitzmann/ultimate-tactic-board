@@ -46,7 +46,6 @@ def cd(path):
     os.chdir(old_path)
 
 
-
 def get_play_dir():
     os.makedirs(cfg.plays_dir, exist_ok=True)
     dirs = [d.split('/')[-2] for d in glob(f'{cfg.plays_dir}/*/')]
@@ -69,7 +68,7 @@ class Field(RelativeLayout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mode = None
-        self.play_dir, self.play_number = get_play_dir()
+        self.play_dir, self.play_number = None, None
         self.annotations = []
         self.configuration = Configuration()
         self.state_img = manim_animations.StateImg()
@@ -234,6 +233,8 @@ class Field(RelativeLayout):
         self.mode.on_touch_move(touch)
 
     def save_state(self):
+        if self.play_dir is None:
+            self.play_dir, self.play_number = get_play_dir()
         self.state.save(f'{self.play_dir}/{self.frame_number}.yaml')
         self.prepare_animation_script()
         self.load_frame(self.frame_number + 1)
