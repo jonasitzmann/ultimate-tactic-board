@@ -1,16 +1,21 @@
 from manim_animations import create_movie, Field
-from state import State
 from manim import *
-from flowchart import Decision, Action, FixArrow, focus, Group
+from flowchart import Decision, Action, FixArrow, focus, Group, get_focus_mobject
+import flowchart
 import cfg
+from manim_presentation import Slide
 
 
-class FlowchartNoDisc(Scene):
+class FlowchartNoDisc(Slide):
     def add(self, *mobjects):
         super().add(*mobjects)
         if len(mobjects) == 1:
             mobjects = mobjects[0]
         return mobjects
+
+    def pplay(self, *args, **kwargs):
+        self.play(*args, **kwargs)
+        self.pause()
 
     def construct(self):
         cfg.player_scale = 1.3
@@ -19,7 +24,11 @@ class FlowchartNoDisc(Scene):
         stroke_width = DEFAULT_STROKE_WIDTH
         l_buff = LARGE_BUFF
         yes, no = [dict(color=c) for c in [GREEN, RED]]
+        self.wait(0.1)
+        self.pause()
         header = self.add(Tex("Verhalten abseits der Scheibe").to_edge(UP, s_buff).to_edge(LEFT))
+        self.play(Write(header))
+        self.pause()
         g_in_hand = Group()
         disc_in_hand = g_in_hand.add(Decision(r'Scheibe\\in der Hand?').next_to(header, DOWN, buff=s_buff))
         in_hand_no = g_in_hand.add(FixArrow(ORIGIN, l_buff*LEFT, **yes).shift(disc_in_hand.get_edge_center(LEFT)))
@@ -34,17 +43,15 @@ class FlowchartNoDisc(Scene):
         l_right = g_pos.add(Line(ORIGIN, s_buff*RIGHT).shift(reposition.get_edge_center(RIGHT)))
         l_up = g_pos.add(Line(l_right.get_end() + lw*DOWN, p_top_right))
         arr = g_pos.add(FixArrow(p_top_right + lw*RIGHT, disc_in_hand.get_edge_center(RIGHT)))
-        self.wait(1)
         self.add(g_pos, g_in_hand)
         f: Field = self.add(Field(self, 'states/reposition_1.yaml').landscape_to_portrait(False))
-        self.play(Write(g_pos), Write(g_in_hand), Write(f), run_time=1)
-        self.wait()
-        with f.highlight('o4'):
-            [self.play(focus(mob)) for mob in [disc_in_hand, hex_pos, hex_pos, reposition]]
-            self.wait()
+        with f.highlight('o4', fade=False):
+            self.pplay(Write(g_pos), Write(g_in_hand), Write(f), run_time=1)
+            flowchart.focus_mobject = get_focus_mobject(disc_in_hand)
+            self.add(flowchart.focus_mobject)
+            [self.pplay(focus(mob)) for mob in [hex_pos, reposition]]
             f.transition('states/reposition_2.yaml')
-            self.play(focus(disc_in_hand))
-            self.wait()
+            self.pplay(focus(disc_in_hand))
 
         # are you open?
         g_free = Group()
@@ -54,17 +61,17 @@ class FlowchartNoDisc(Scene):
         to_free = g_free.add(FixArrow(hex_pos.get_edge_center(DOWN), free.get_edge_center(UP), **yes))
         l_right = g_free.add(Line(ORIGIN, s_buff * RIGHT).shift(communicate.get_edge_center(RIGHT)))
         l_up = g_free.add(Line(l_right.get_end() + lw * DOWN, p_top_right))
-        f.transition('states/open_1.yaml', run_time=0.5)
         with f.highlight('o6', fade=False):
+            f.transition('states/open_1.yaml', run_time=0.5)
+            self.pause()
             f.transition('states/open_2.yaml')
-            [self.play(focus(mob)) for mob in [disc_in_hand, hex_pos, hex_pos]]
+            self.pplay(focus(hex_pos))
             self.play(Write(g_free))
-            [self.play(focus(mob)) for mob in [free, free, communicate]]
-            self.wait()
+            [self.pplay(focus(mob)) for mob in [free, communicate]]
             [self.play(Indicate(f.get_player('o6')), run_time=0.5) for _ in range(3)]
             f.transition('states/open_3.yaml')
-            self.wait()
-            self.play(focus(disc_in_hand))
+            self.pause()
+            self.pplay(focus(disc_in_hand))
         self.add(g_free)
 
         g_looking = Group()
@@ -78,21 +85,17 @@ class FlowchartNoDisc(Scene):
         for i, alternative in enumerate([2, 3]):
             f.transition('states/looking_1.yaml', run_time=0.5)
             with f.highlight('o2', fade=False):
-                self.wait()
-                [self.play(focus(mob)) for mob in [hex_pos, free]]
-                self.wait()
+                self.wait(0.1)
+                self.pause()
+                [self.pplay(focus(mob)) for mob in [hex_pos, free]]
                 if i == 0:
                     self.play(Write(g_looking))
-                self.wait()
-                self.play(focus(thrower_looking))
-                self.wait()
+                self.pplay(focus(thrower_looking))
                 with f.field_of_view('o1'):
-                    self.play(focus(generate_option))
-                    self.wait()
+                    self.pplay(focus(generate_option))
                     f.transition(f'states/looking_{alternative}.yaml')
-                    self.wait()
-                    self.play(focus(disc_in_hand))
-                self.wait(2)
+                    self.pause()
+                    self.pplay(focus(disc_in_hand))
         self.add(g_looking)
 
         g_space = Group()
@@ -113,34 +116,35 @@ class FlowchartNoDisc(Scene):
         l_right = g_chill.add(Line(ORIGIN, s_buff*RIGHT).shift(chill.get_edge_center(RIGHT)))
         l_up = g_chill.add(Line(l_right.get_end() + lw*DOWN, p_top_right))
 
-        f.transition('states/looking_1.yaml', run_time=0.5)
         with f.highlight('o5', fade=False):
-            [self.play(focus(mob)) for mob in [hex_pos, free, thrower_looking]]
+            f.transition('states/looking_1.yaml', run_time=0.5)
+            self.pause()
+            [self.pplay(focus(mob)) for mob in [hex_pos, free, thrower_looking]]
             with f.field_of_view('o1'):
                 self.play(Write(g_space))
-                self.wait()
-                [self.play(focus(mob)) for mob in [create_space, create_space, generate_option, generate_option]]
+                [self.pplay(focus(mob)) for mob in [create_space, generate_option]]
                 f.transition('states/looking_2.yaml')
-                self.wait()
-                self.play(focus(disc_in_hand))
+                self.pause()
+                self.pplay(focus(disc_in_hand))
         self.add(g_space)
-        self.wait(3)
-        f.transition('states/looking_1.yaml', run_time=0.5)
+
         with f.highlight('o3', fade=False):
-            [self.play(focus(mob)) for mob in [hex_pos, free, thrower_looking, create_space]]
+            f.transition('states/looking_1.yaml', run_time=0.5)
+            self.pause()
+            [self.pplay(focus(mob)) for mob in [hex_pos, free, thrower_looking, create_space]]
             self.play(Write(g_chill))
-            self.wait()
-            self.play(focus(chill))
-            self.wait()
+            self.pplay(focus(chill))
             with f.field_of_view('o3'):
-                self.wait()
+                self.pause()
                 f.transition('states/looking_2.yaml')
-                self.wait()
-            self.play(focus(disc_in_hand))
-            [self.play(focus(mob)) for mob in [hex_pos, hex_pos, reposition]]
-            self.wait(5)
+                self.pause()
+            self.pplay(focus(disc_in_hand))
+            [self.pplay(focus(mob)) for mob in [hex_pos, reposition]]
         self.add(g_chill)
+        self.wait()
 
 
 if __name__ == '__main__':
-    create_movie(FlowchartNoDisc, debug=False, hq=True, output_file='flowchart_no_disc.mp4')
+    create_movie(FlowchartNoDisc, debug=False, hq=True, output_file='flowchart_with_disc.mp4')
+    bin_dir = '/home/jonas/.conda/envs/tactics_board/bin'
+    os.system(f'{bin_dir}/manim-presentation FlowchartNoDisc --fullscreen')

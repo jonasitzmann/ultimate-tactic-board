@@ -1,10 +1,14 @@
+import sys
+sys.path.append('../../')
 from manim_animations import create_movie, Field
 from state import State
 from manim import *
-from flowchart import Decision, Action, FixArrow, focus, Group
+from flowchart import Decision, Action, FixArrow, focus, Group, get_focus_mobject
+import flowchart
+from manim_presentation import Slide
 
 
-class FlowchartWithDisc(Scene):
+class FlowchartWithDisc(Slide):
     @staticmethod
     def get_state(play_number, state_number):
         return State.load(f'{play_number}/{state_number}.yaml')
@@ -15,6 +19,10 @@ class FlowchartWithDisc(Scene):
             mobjects = mobjects[0]
         return mobjects
 
+    def pplay(self, *args, **kwargs):
+        self.play(*args, **kwargs)
+        self.pause()
+
     def construct(self):
         stroke_width = DEFAULT_STROKE_WIDTH
         yes, no, maybe = [dict(color=c) for c in [GREEN, RED, YELLOW]]
@@ -23,8 +31,11 @@ class FlowchartWithDisc(Scene):
         lw = 0.02
 
         f = Field(self, self.get_state(1, 1)).landscape_to_portrait(False)
+        self.wait(0.1)
+        self.pause()
         header = self.add(Tex("Einfache Anspieloptionen finden").to_edge(UP, MED_SMALL_BUFF).to_edge(LEFT))
         self.play(Write(header))
+        self.pause()
 
         g_basic = Group()
         disc_in_hand = Decision(r'Scheibe\\in der Hand?').next_to(header, DOWN, buff=MED_LARGE_BUFF).shift(RIGHT)
@@ -44,19 +55,34 @@ class FlowchartWithDisc(Scene):
         dots = Action(r'\dots').next_to(disc_in_hand, RIGHT, buff=LARGE_BUFF)
         g_basic.add(dots)
         g_basic.add(FixArrow(disc_in_hand.get_edge_center(RIGHT), dots.get_edge_center(LEFT), **no))
-        self.add(g_basic)
+
+        f.transition(self.get_state(1, 2), run_time=1)
+        f.fake('o2')
+        f.transition(self.get_state(1, 3), run_time=2, d_delay=0.3)
+        f.transition(self.get_state(1, 4), run_time=2, disc_delay=0, d_delay=0.3, linear_end=True)
+        f.transition(self.get_state(1, 5), run_time=2, disc_delay=0, linear_start=True)
+        f.transition(self.get_state(1, 6), run_time=2)
+        f.transition(self.get_state(1, 7), run_time=2)
+        f.transition(self.get_state(1, 8), run_time=2)
+        self.pause()
+
+        f.transition(self.get_state(1, 1), run_time=0.5)
         with f.highlight('o2', fade=False):
-            [self.play(focus(mob)) for mob in [disc_in_hand, in_front]]
+            flowchart.focus_mobject = get_focus_mobject(disc_in_hand)
+            self.add(flowchart.focus_mobject)
+            self.pplay(Write(g_basic), Write(flowchart.focus_mobject))
             f.transition(self.get_state(1, 2), run_time=1)
+            f.fake('o2')
             f.transition(self.get_state(1, 3), run_time=2, d_delay=0.3)
+            self.pause()
+            self.pplay(focus(in_front))
             with f.field_of_view('o2'):
-                self.wait()
-                self.play(focus(throw_pass))
+                self.pause()
+                [self.pplay(focus(mob)) for mob in [throw_pass, return_pass, disc_in_hand]]
             f.transition(self.get_state(1, 4), run_time=2, disc_delay=0, d_delay=0.3, linear_end=True)
-            self.play(focus(return_pass))
-            self.wait()
-            f.transition(self.get_state(1, 5), run_time=1, disc_delay=0, linear_start=True)
-            self.wait(3)
+            f.transition(self.get_state(1, 5), run_time=2, disc_delay=0, linear_start=True)
+            self.pplay(focus(disc_in_hand))
+        self.add(g_basic)
 
 
         g_fake = Group()
@@ -73,16 +99,19 @@ class FlowchartWithDisc(Scene):
         g_fake.add(Line(p1_fake, p2, z_index=-1))
         f.transition(self.get_state(1, 1), run_time=0.5)
         with f.highlight('o1', fade=False):
-            [self.play(focus(mob)) for mob in [disc_in_hand, in_front]]
+            self.wait(0.1)
+            self.pause()
+            self.pplay(focus(in_front))
             with f.field_of_view('o1'):
-                f.transition(self.get_state(1, 2), run_time=1)
+                self.pause()
                 self.play(Write(g_fake), run_time=0.5)
-                [self.play(focus(mob)) for mob in [fake, fake, in_front]]
+                self.wait()
+                self.pplay(focus(fake))
+                f.transition(self.get_state(1, 2), run_time=1)
                 f.fake('o2')
-                [self.play(focus(mob)) for mob in [throw_pass, return_pass]]
                 f.transition(self.get_state(1, 3), run_time=2, d_delay=0.3)
-                self.play(focus(disc_in_hand))
-            self.wait(3)
+                self.pause()
+                [self.pplay(focus(mob)) for mob in [in_front, throw_pass, return_pass, disc_in_hand]]
         self.add(g_fake)
 
         prev_thrower = Decision(r'Letzter\\Werfer frei?').next_to(decisions[-1], orientation, buff=buff)
@@ -99,21 +128,18 @@ class FlowchartWithDisc(Scene):
         g_prev.add(l1, l2)
         f.transition(self.get_state(1, 1), run_time=0.5)
         with f.highlight('o6', fade=False):
+            self.wait(0.1)
+            self.pause()
             f.transition(self.get_state(1, 2), run_time=1)
             f.transition(self.get_state(1, 3), run_time=2, d_delay=0.3)
             f.transition(self.get_state(1, 4), run_time=2, disc_delay=0, d_delay=0.3, linear_end=True)
-            self.wait()
-            self.play(focus(in_front))
-            self.wait()
+            self.pause()
+            self.pplay(focus(in_front))
             self.play(Write(g_prev), run_time=0.5)
-            self.wait()
-            [self.play(focus(mob)) for mob in [prev_thrower, prev_thrower, throw_pass, return_pass]]
-            f.transition(self.get_state(1, 5), run_time=1, disc_delay=0, linear_start=True)
-            self.play(focus(disc_in_hand))
+            self.pplay(focus(prev_thrower))
+            [self.pplay(focus(mob)) for mob in [throw_pass, return_pass, disc_in_hand]]
+            f.transition(self.get_state(1, 5), run_time=2, disc_delay=0, linear_start=True)
         self.add(g_prev)
-
-        self.wait(5)
-
 
         continuation = Decision(r'Continuation\\möglich?').next_to(decisions[-1], orientation, buff=buff)
         g_cont = Group(continuation)
@@ -138,25 +164,30 @@ class FlowchartWithDisc(Scene):
         g_center.add(Line(p2, p1_fake))
         f.load_state(self.get_state(1, 5))
         with f.highlight('o2', fade=False):
-            self.wait()
-            [self.play(focus(mob)) for mob in [in_front, prev_thrower]]
-            self.wait()
+            self.wait(0.1)
+            self.pause()
+            [self.pplay(focus(mob)) for mob in [in_front, prev_thrower]]
             self.play(Write(g_cont), run_time=0.5)
-            self.wait(2)
+            self.pplay(focus(continuation))
             self.play(Write(g_center), run_time=0.5)
+            self.pplay(focus(face_center))
             with f.field_of_view('o2'):
                 f.transition(self.get_state(1, 6), run_time=2)
-                self.wait()
-                self.play(focus(throw_pass))
-                f.transition(self.get_state(1, 7), run_time=3)
+                self.pause()
+                [self.pplay(focus(mob)) for mob in [in_front, throw_pass, return_pass, disc_in_hand]]
+                f.transition(self.get_state(1, 7), run_time=2)
             self.play(focus(disc_in_hand))
 
         with f.highlight('o4', fade=False):
-            [self.play(focus(mob)) for mob in [in_front, prev_thrower, continuation]]
-            self.wait()
-            f.transition(self.get_state(1, 8), run_time=3)
-        self.wait(5)
+            self.wait(0.1)
+            [self.pplay(focus(mob)) for mob in [in_front, prev_thrower, continuation, throw_pass, return_pass, disc_in_hand]]
+            f.transition(self.get_state(1, 8), run_time=2)
+        self.pause()
+        self.wait()
+
 
 
 if __name__ == '__main__':
-    create_movie(FlowchartWithDisc, debug=False, hq=True, output_file='flowchart_with_disc.mp4')
+    # create_movie(FlowchartWithDisc, debug=False, hq=True, output_file='flowchart_with_disc.mp4')
+    bin_dir = '/home/jonas/.conda/envs/tactics_board/bin'
+    os.system(f'{bin_dir}/manim-presentation FlowchartWithDisc --fullscreen')
