@@ -106,7 +106,7 @@ class Field(VGroup):
         global_scene.play(self.animate.scale(1 / ls2pt).rotate(-90 * DEGREES).move_to(ORIGIN))
         return self
 
-    def transition(self, s2: State, run_time=4, **kwargs):
+    def transition(self, s2: State, run_time=2, **kwargs):
         if isinstance(s2, str):
             s2 = State.load(s2)
         global_scene.play(*self.get_animations(s2, **kwargs), run_time=run_time)
