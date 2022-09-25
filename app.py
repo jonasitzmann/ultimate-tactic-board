@@ -2,7 +2,6 @@ from manim_animations import Field as MField
 from functools import partial
 from kivy.config import Config
 from dataclasses import dataclass
-
 from kivy.properties import ObjectProperty
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.floatlayout import FloatLayout
@@ -90,7 +89,11 @@ class Field(RelativeLayout):
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_key_down)
         self._keyboard.bind(on_key_up=self._on_key_up)
+        self.children[0].bind(on_touch_down=self.on_touch_down)
         self.pressed_keys = set()
+
+    def on_press(self, *args, **kwargs):
+        print(*args)
 
     @property
     def previous_state(self):
@@ -223,6 +226,10 @@ class Field(RelativeLayout):
                 disc_pos = pos
                 self.state.disc = disc_pos
                 self.update_img()
+            elif touch.button == 'mouse4':  # undo
+                self.undo()
+            elif touch.button == 'mouse5':  # redo
+                self.redo()
             else:
                 self.mode.on_touch_down(touch)
 
