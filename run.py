@@ -1,17 +1,17 @@
 import os
 import shutil
-import scan
+# import scan
 import cfg
-import ip_camera
+# import ip_camera
 from glob import glob
 
 
-def state_from_photo(show=False):
-    ip_camera.take_photo()
-    state = scan.scan(cfg.demo_img)
-    if show:
-        drawer.show(drawer.draw_scene(state), wait=1000)
-    return state
+# def state_from_photo(show=False):
+#     ip_camera.take_photo()
+#     state = scan.scan(cfg.demo_img)
+#     if show:
+#         drawer.show(drawer.draw_scene(state), wait=1000)
+#     return state
 
 
 def main():

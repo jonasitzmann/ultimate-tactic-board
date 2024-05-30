@@ -1,4 +1,4 @@
-import awesome_print
+# import awesome_print
 
 class AttrDict(object):
     def __init__(self, dct):
@@ -7,8 +7,8 @@ class AttrDict(object):
     def __repr__(self):
         return repr(self.dict)
 
-    def __str__(self):
-        return awesome_print.awesome_print.format(self.dict)
+    # def __str__(self):
+    #     return awesome_print.awesome_print.format(self.dict)
 
     def __getattr__(self, attr):
         try:

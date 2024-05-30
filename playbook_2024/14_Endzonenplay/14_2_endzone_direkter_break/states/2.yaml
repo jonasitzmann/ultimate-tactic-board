@@ -1,0 +1,59 @@
+areas: []
+disc: [12.0, 84.0]
+players:
+- label: '2'
+  orientation: -180
+  pos: [19.0, 90.0]
+  role: o
+- label: '3'
+  orientation: -180
+  pos: [19.0, 92.5]
+  role: o
+- label: '4'
+  orientation: 176
+  pos: [19.0, 95.0]
+  role: o
+- label: '6'
+  orientation: 7
+  pos: [19.0, 74.5]
+  role: o
+- label: '2'
+  orientation: 40
+  pos: [20.0, 89.0]
+  role: d
+- label: '3'
+  orientation: 39
+  pos: [20.0, 91.5]
+  role: d
+- label: '4'
+  orientation: 60
+  pos: [20.0, 94.5]
+  role: d
+- label: '6'
+  orientation: -147
+  pos: [18.0, 76.0]
+  role: d
+- label: '7'
+  orientation: 49
+  pos: [25.0, 69.5]
+  role: o
+- label: '7'
+  orientation: -143
+  pos: [24.5, 71.0]
+  role: d
+- label: '1'
+  orientation: 94
+  pos: [12.0, 84.5]
+  role: o
+- label: '5'
+  orientation: -8
+  pos: [10.0, 69.5]
+  role: o
+- label: '5'
+  orientation: 142
+  pos: [11.0, 71.0]
+  role: d
+- label: '1'
+  orientation: 90.0
+  pos: [15.5, 84.0]
+  role: d

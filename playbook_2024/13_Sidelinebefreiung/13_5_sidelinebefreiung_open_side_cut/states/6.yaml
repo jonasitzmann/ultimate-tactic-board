@@ -1,0 +1,27 @@
+areas: []
+disc: [22.5, 21.5]
+players:
+- label: '3'
+  orientation: 150
+  pos: [23.0, 22.0]
+  role: o
+- label: '1'
+  orientation: 143
+  pos: [31.0, 17.5]
+  role: o
+- label: '1'
+  orientation: 150
+  pos: [32.5, 20.5]
+  role: d
+- label: '2'
+  orientation: 97.59464336859145
+  pos: [25.0, 35.0]
+  role: o
+- label: '2'
+  orientation: 94.39870535499553
+  pos: [26.0, 32.5]
+  role: d
+- label: '3'
+  orientation: 129.8055710922652
+  pos: [23.0, 25.5]
+  role: d

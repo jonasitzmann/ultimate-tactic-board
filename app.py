@@ -1,4 +1,5 @@
 from manim_animations import Field as MField
+from pathlib import Path
 from functools import partial
 from kivy.config import Config
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ import os
 import cfg
 import importlib
 from glob import glob
-from run import state_from_photo
+# from run import state_from_photo
 from kivy.core.image import Image as CoreImage
 from kivy.uix.image import Image as kiImage
 from io import BytesIO
@@ -36,6 +37,7 @@ class LoadDialog(FloatLayout):
     cancel = ObjectProperty(None)
 
 Window.size, disc_width = (1800, 800), 40
+
 
 @contextmanager
 def cd(path):
@@ -197,6 +199,9 @@ class Field(RelativeLayout):
         self.mode = mode_
 
     def prepare_animation_script(self):
+        save_path = f'{self.play_dir}/{self.play_name}.py'
+        if Path(save_path).exists():
+            return
         with open(cfg.template_play_file, 'r') as f:
             template = f.read()
         if self.play_name is None:
@@ -206,7 +211,6 @@ class Field(RelativeLayout):
         indentation = ' ' * 8
         transitions = '\n'.join([f'{indentation}f.transition(s[{i}], run_time=2)' for i in range(1, self.num_frames)])
         template = template.replace(f'{indentation}# state transitions', transitions)
-        save_path = f'{self.play_dir}/{self.play_name}.py'
         with open(save_path, 'w') as f:
             f.write(template)
 
